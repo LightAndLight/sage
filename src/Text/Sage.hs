@@ -1,6 +1,7 @@
 {-# language BangPatterns #-}
 {-# language DeriveGeneric #-}
 {-# language MagicHash, UnboxedSums, UnboxedTuples #-}
+{-# language OverloadedStrings #-}
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# options_ghc -fno-warn-unused-top-binds #-}
@@ -12,6 +13,8 @@ module Text.Sage
   , char
   , text
   , symbol
+  , digit
+  , decimal
   , eof
   , try
   , (<?>)
@@ -22,10 +25,12 @@ where
 
 import Control.Applicative (Alternative(..))
 import Control.DeepSeq (NFData)
+import Data.Char (isDigit, ord)
 import Data.Primitive.MachDeps (sIZEOF_INT)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text ()
+import qualified Data.Text as Text
 import Data.Text.Array (Array(..))
 import Data.Text.Internal (Text(Text))
 import Data.Text.Internal.Encoding.Utf16 (chr2)
@@ -375,6 +380,47 @@ text (Text (Array arr) (I# off) (I# len)) =
                   then go (# vData, vOff', vRemaining -# 1#, input, 1#, state' #)
                   else (# consumed, state, (# expected | #) #)
 
+satisfySome_ :: (Char -> Bool) -> Set Label -> Parser s Text
+satisfySome_ p expecteds =
+  Parser $ \(# es, input, state, s #) ->
+  case readState state s of
+    (# s', state_ #) ->
+      case iter (# input, state_ #) of
+        (# c, state_' #) ->
+          let
+            es' = expecteds <> es
+          in
+            if p c
+            then
+              case go (# input, state_' #) of
+                state_'' ->
+                  let
+                    s'' = writeState state state_'' s'
+                  in
+                    (# s''
+                    , 1#
+                    , es'
+                    , (# | Text (Array input) (I# (byteOffset state_)) (I# (byteOffset state_'' -# byteOffset state_)) #)
+                    #)
+            else
+              (# s'
+              , 0#
+              , es'
+              , (# (# charOffset state_, es' #) | #)
+              #)
+  where
+    go ::
+      (# Input
+      , State
+      #) ->
+      State
+    go (# input, state #) =
+      case iter (# input, state #) of
+        (# c, state' #) ->
+          if p c
+          then go (# input, state' #)
+          else state
+
 -- | Only consumes input if the entire value is matched
 {-# inline symbol #-}
 symbol :: Text -> Parser s ()
@@ -459,3 +505,58 @@ spanned (Parser p) =
               case readCharOffset state s'' of
                 (# s''', end #) ->
                   (# s''', consumed, es', (# | (Span (I# start) (I# (end -# start)), a)  #) #)
+
+satisfy_ :: (Char -> Maybe a) -> Set Label -> Parser s a
+satisfy_ p expected =
+  Parser $
+  \(# es, input, state, s #) ->
+  let es' = expected <> es in
+  case readState state s of
+    (# s', state_ #) ->
+      case (<#) (byteOffset state_) (byteLength state_) of
+        1# ->
+          case iter (# input, state_ #) of
+            (# c', state_' #) ->
+              case p c' of
+                Nothing ->
+                  (# s'
+                  , 0#
+                  , es'
+                  , (# (# charOffset state_, es' #) | #)
+                  #)
+                Just res ->
+                  case writeState state state_' s' of
+                    s'' ->
+                      (# s''
+                      , 1#
+                      , mempty
+                      , (# | res #)
+                      #)
+        _ ->
+          (# s'
+          , 0#
+          , es'
+          , (# (# charOffset state_, es' #) | #)
+          #)
+
+digitLabels :: Set Label
+digitLabels =
+  Set.insert (Char '0') $
+  Set.insert (Char '1') $
+  Set.insert (Char '2') $
+  Set.insert (Char '3') $
+  Set.insert (Char '4') $
+  Set.insert (Char '5') $
+  Set.insert (Char '6') $
+  Set.insert (Char '7') $
+  Set.insert (Char '8') $
+  Set.insert (Char '9') $
+  mempty
+
+digit :: Parser s Int
+digit = satisfy_ (\c -> let n = ord c - 48 in if 0 <= n && n < 10 then Just n else Nothing) digitLabels
+
+decimal :: Parser s Int
+decimal =
+  Text.foldl' (\acc d -> 10 * acc + ord d - 48) 0 <$>
+  satisfySome_ isDigit digitLabels

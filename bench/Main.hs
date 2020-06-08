@@ -18,6 +18,7 @@ import qualified Text.Sage as Parser
 import qualified Data.Attoparsec.Text as Attoparsec
 import qualified Text.Megaparsec as Megaparsec
 import qualified Text.Megaparsec.Char as Megaparsec
+import qualified Text.Megaparsec.Char.Lexer as Megaparsec (decimal)
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -175,6 +176,15 @@ manyTextsAP = Attoparsec.parse (ps <* Attoparsec.endOfInput)
       5 <$ Attoparsec.string "plato" <|>
       6 <$ Attoparsec.string "ticklish"
 
+decimal :: Text -> Either Parser.ParseError Int
+decimal = Parser.parse (Parser.decimal <* Parser.eof)
+
+decimalMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Int
+decimalMP = Megaparsec.parse (Megaparsec.decimal <* Megaparsec.eof) ""
+
+decimalAP :: Text -> Attoparsec.Result Int
+decimalAP = Attoparsec.parse (Attoparsec.decimal <* Attoparsec.endOfInput)
+
 main :: IO ()
 main = do
   print $ parseLambda "x"
@@ -233,5 +243,13 @@ main = do
             , bench "megaparsec" $ nf parseLambdaMP file
             , bench "attoparsec" $ nf parseLambdaAP file
             ]
+        , let
+            input = "268435456"
+          in
+            bgroup "decimal"
+              [ bench "sage" $ nf decimal input
+              , bench "megaparsec" $ nf decimalMP input
+              , bench "attoparsec" $ nf decimalAP input
+              ]
         ]
     arg -> error $ "Unknown argument " <> show arg
