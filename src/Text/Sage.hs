@@ -26,6 +26,7 @@ where
 import Control.Applicative (Alternative(..))
 import Control.DeepSeq (NFData)
 import Data.Char (isDigit, ord)
+import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Primitive.MachDeps (sIZEOF_INT)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -35,6 +36,7 @@ import Data.Text.Array (Array(..))
 import Data.Text.Internal (Text(Text))
 import Data.Text.Internal.Encoding.Utf16 (chr2)
 import Data.Text.Internal.Unsafe.Char (unsafeChr)
+import Data.Word (Word8, Word16, Word32, Word64)
 import GHC.Exts
   ( ByteArray#, Int#, MutableByteArray#, State#, RealWorld
   , (<#), (>#), (+#), (-#), (*#)
@@ -380,6 +382,7 @@ text (Text (Array arr) (I# off) (I# len)) =
                   then go (# vData, vOff', vRemaining -# 1#, input, 1#, state' #)
                   else (# consumed, state, (# expected | #) #)
 
+{-# inline satisfySome_ #-}
 satisfySome_ :: (Char -> Bool) -> Set Label -> Parser s Text
 satisfySome_ p expecteds =
   Parser $ \(# es, input, state, s #) ->
@@ -506,6 +509,7 @@ spanned (Parser p) =
                 (# s''', end #) ->
                   (# s''', consumed, es', (# | (Span (I# start) (I# (end -# start)), a)  #) #)
 
+{-# inline satisfy_ #-}
 satisfy_ :: (Char -> Maybe a) -> Set Label -> Parser s a
 satisfy_ p expected =
   Parser $
@@ -553,10 +557,35 @@ digitLabels =
   Set.insert (Char '9') $
   mempty
 
-digit :: Parser s Int
-digit = satisfy_ (\c -> let n = ord c - 48 in if 0 <= n && n < 10 then Just n else Nothing) digitLabels
+digit :: Num a => Parser s a
+digit =
+  satisfy_
+    (\c -> let n = ord c - 48 in if 0 <= n && n < 10 then Just (fromIntegral n) else Nothing)
+    digitLabels
+{-# SPECIALISE digit :: Parser s Int #-}
+{-# SPECIALISE digit :: Parser s Int8 #-}
+{-# SPECIALISE digit :: Parser s Int16 #-}
+{-# SPECIALISE digit :: Parser s Int32 #-}
+{-# SPECIALISE digit :: Parser s Int64 #-}
+{-# SPECIALISE digit :: Parser s Integer #-}
+{-# SPECIALISE digit :: Parser s Word #-}
+{-# SPECIALISE digit :: Parser s Word8 #-}
+{-# SPECIALISE digit :: Parser s Word16 #-}
+{-# SPECIALISE digit :: Parser s Word32 #-}
+{-# SPECIALISE digit :: Parser s Word64 #-}
 
-decimal :: Parser s Int
+decimal :: Num a => Parser s a
 decimal =
-  Text.foldl' (\acc d -> 10 * acc + ord d - 48) 0 <$>
+  Text.foldl' (\acc d -> 10 * acc + fromIntegral (ord d) - 48) 0 <$>
   satisfySome_ isDigit digitLabels
+{-# SPECIALISE decimal :: Parser s Int #-}
+{-# SPECIALISE decimal :: Parser s Int8 #-}
+{-# SPECIALISE decimal :: Parser s Int16 #-}
+{-# SPECIALISE decimal :: Parser s Int32 #-}
+{-# SPECIALISE decimal :: Parser s Int64 #-}
+{-# SPECIALISE decimal :: Parser s Integer #-}
+{-# SPECIALISE decimal :: Parser s Word #-}
+{-# SPECIALISE decimal :: Parser s Word8 #-}
+{-# SPECIALISE decimal :: Parser s Word16 #-}
+{-# SPECIALISE decimal :: Parser s Word32 #-}
+{-# SPECIALISE decimal :: Parser s Word64 #-}
