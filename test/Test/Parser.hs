@@ -23,27 +23,27 @@ parserTests =
     it "parse digit \"5\"" $ do
       let
         input = "5"
-        output = Right 5
+        output = Right '5'
       parse digit input `shouldBe` output
     it "parse digit \"a\"" $ do
       let
         input = "a"
-        output = Left (Unexpected 0 $ Set.fromList $ fmap Char ['0'..'9'])
+        output = Left (Unexpected 0 $ Set.fromList [Named "digit"])
       parse digit input `shouldBe` output
     it "parse decimal \"11223344\"" $ do
       let
         input = "11223344"
-        output = Right 11223344
+        output = Right (11223344 :: Int)
       parse decimal input `shouldBe` output
     it "parse decimal \"a1223344\"" $ do
       let
         input = "a1223344"
-        output = Left (Unexpected 0 $ Set.fromList $ fmap Char ['0'..'9'])
+        output = Left (Unexpected 0 $ Set.fromList $ fmap Char ['0'..'9']) :: Either ParseError Int
       parse decimal input `shouldBe` output
     it "parse (decimal <* eof) \"1122a344\"" $ do
       let
         input = "1122a344"
-        output = Left (Unexpected 4 $ Set.fromList $ Eof : fmap Char ['0'..'9'])
+        output = Left (Unexpected 4 $ Set.fromList $ Eof : fmap Char ['0'..'9']) :: Either ParseError Int
       parse (decimal <* eof) input `shouldBe` output
     it "parse (symbol \"ab\") \"ab\"" $ do
       let

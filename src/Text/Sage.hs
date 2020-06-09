@@ -14,8 +14,11 @@ module Text.Sage
   , text
   , symbol
   , digit
+  , digits1
   , decimal
   , eof
+  , satisfy
+  , takeWhile1
   , try
   , (<?>)
   , Span(..), spanStart, spanLength
@@ -509,9 +512,9 @@ spanned (Parser p) =
                 (# s''', end #) ->
                   (# s''', consumed, es', (# | (Span (I# start) (I# (end -# start)), a)  #) #)
 
-{-# inline satisfy_ #-}
-satisfy_ :: (Char -> Maybe a) -> Set Label -> Parser s a
-satisfy_ p expected =
+{-# inline satisfyMaybe_ #-}
+satisfyMaybe_ :: (Char -> Maybe a) -> Set Label -> Parser s a
+satisfyMaybe_ p expected =
   Parser $
   \(# es, input, state, s #) ->
   let es' = expected <> es in
@@ -543,6 +546,14 @@ satisfy_ p expected =
           , (# (# charOffset state_, es' #) | #)
           #)
 
+{-# inline satisfy_ #-}
+satisfy_ :: (Char -> Bool) -> Set Label -> Parser s Char
+satisfy_ p = satisfyMaybe_ (\c -> if p c then Just c else Nothing)
+
+{-# inline satisfy #-}
+satisfy :: (Char -> Bool) -> Parser s Char
+satisfy p = satisfy_ p mempty
+
 digitLabels :: Set Label
 digitLabels =
   Set.insert (Char '0') $
@@ -557,22 +568,13 @@ digitLabels =
   Set.insert (Char '9') $
   mempty
 
-digit :: Num a => Parser s a
-digit =
-  satisfy_
-    (\c -> let n = ord c - 48 in if 0 <= n && n < 10 then Just (fromIntegral n) else Nothing)
-    digitLabels
-{-# SPECIALISE digit :: Parser s Int #-}
-{-# SPECIALISE digit :: Parser s Int8 #-}
-{-# SPECIALISE digit :: Parser s Int16 #-}
-{-# SPECIALISE digit :: Parser s Int32 #-}
-{-# SPECIALISE digit :: Parser s Int64 #-}
-{-# SPECIALISE digit :: Parser s Integer #-}
-{-# SPECIALISE digit :: Parser s Word #-}
-{-# SPECIALISE digit :: Parser s Word8 #-}
-{-# SPECIALISE digit :: Parser s Word16 #-}
-{-# SPECIALISE digit :: Parser s Word32 #-}
-{-# SPECIALISE digit :: Parser s Word64 #-}
+{-# inline digit #-}
+digit :: Parser s Char
+digit = satisfy isDigit <?> "digit"
+
+{-# inline digits1 #-}
+digits1 :: Parser s Text
+digits1 = satisfySome_ isDigit digitLabels
 
 decimal :: Num a => Parser s a
 decimal =
@@ -589,3 +591,7 @@ decimal =
 {-# SPECIALISE decimal :: Parser s Word16 #-}
 {-# SPECIALISE decimal :: Parser s Word32 #-}
 {-# SPECIALISE decimal :: Parser s Word64 #-}
+
+{-# inline takeWhile1 #-}
+takeWhile1 :: (Char -> Bool) -> Parser s Text
+takeWhile1 p = satisfySome_ p mempty
