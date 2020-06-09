@@ -11,6 +11,7 @@ module Text.Sage
   , ParseError(..)
   , parse
   , char
+  , lower
   , text
   , symbol
   , digit
@@ -28,7 +29,7 @@ where
 
 import Control.Applicative (Alternative(..))
 import Control.DeepSeq (NFData)
-import Data.Char (isDigit, ord)
+import Data.Char (isDigit, isLower, ord)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Primitive.MachDeps (sIZEOF_INT)
 import Data.Set (Set)
@@ -575,6 +576,10 @@ digit = satisfy isDigit <?> "digit"
 {-# inline digits1 #-}
 digits1 :: Parser s Text
 digits1 = satisfySome_ isDigit digitLabels
+
+{-# inline lower #-}
+lower :: Parser s Char
+lower = satisfy isLower <?> "lowercase character"
 
 decimal :: Num a => Parser s a
 decimal =
