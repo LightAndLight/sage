@@ -24,6 +24,7 @@ module Text.Sage
   , pLower
   , satisfy
   , takeWhile1
+  , sepBy
   , (<?>)
   , Span(..), spanStart, spanLength
   , spanned
@@ -312,7 +313,7 @@ instance Monad (Parser s) where
                (# s'', orI# consumed consumed', es'', output' #)
 
 {-# inline char #-}
-char :: Char -> Parser s ()
+char :: Char -> Parser s Char
 char c =
   Parser $
   \(# es, input, state, s #) ->
@@ -336,7 +337,7 @@ char c =
                       (# s''
                       , 1#
                       , mempty
-                      , (# | () #)
+                      , (# | c' #)
                       #)
         _ ->
           (# s'
@@ -682,3 +683,8 @@ decimal =
 {-# inline takeWhile1 #-}
 takeWhile1 :: (Char -> Bool, Text) -> Parser s Text
 takeWhile1 (p, n) = satisfySome_ p (Set.singleton $ Named n)
+
+sepBy :: Parser s a -> Parser s sep -> Parser s [a]
+sepBy p sep =
+  (:) <$> p *> many (sep *> p) <|>
+  pure []

@@ -13,7 +13,7 @@ parserTests =
     it "parse (char 'a') \"a\"" $ do
       let
         input = "a"
-        output = Right ()
+        output = Right 'a'
       parse (char 'a') input `shouldBe` output
     it "parse (char 'a') \"b\"" $ do
       let
@@ -123,7 +123,7 @@ parserTests =
     it "parse (char 'a' *> char 'b') \"ab\"" $ do
       let
         input = "ab"
-        output = Right ()
+        output = Right 'b'
       parse (char 'a' *> char 'b') input `shouldBe` output
     it "parse (char 'a' *> char 'b') \"ac\"" $ do
       let
@@ -138,12 +138,12 @@ parserTests =
     it "parse (char 'a' <|> char 'b') \"a\"" $ do
       let
         input = "a"
-        output = Right ()
+        output = Right 'a'
       parse (char 'a' <|> char 'b') input `shouldBe` output
     it "parse (char 'a' <|> char 'b') \"b\"" $ do
       let
         input = "b"
-        output = Right ()
+        output = Right 'b'
       parse (char 'a' <|> char 'b') input `shouldBe` output
     it "parse (char 'a' <|> char 'b') \"c\"" $ do
       let
@@ -177,7 +177,7 @@ parserTests =
     it "parse (char '(' *> some (char 'x') <* char ')') \"(xx)\"" $ do
       let
         input = "(xx)"
-        output = Right [(), ()]
+        output = Right ['x', 'x']
       parse (char '(' *> some (char 'x') <* char ')') input `shouldBe` output
     it "parse (char '(' *> some (char 'x') <* char ')') \"(xxy\"" $ do
       let
