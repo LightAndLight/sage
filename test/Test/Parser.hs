@@ -5,7 +5,7 @@ import Control.Applicative ((<|>), empty, some, many)
 import Test.Hspec
 import qualified Data.Set as Set
 
-import Text.Sage (Label(..), ParseError(..), (<?>), parse, char, decimal, digit, symbol, text, eof)
+import Text.Sage
 
 parserTests :: Spec
 parserTests =
@@ -20,6 +20,56 @@ parserTests =
         input = "b"
         output = Left (Unexpected 0 $ Set.fromList [Char 'a'])
       parse (char 'a') input `shouldBe` output
+    it "parse (matchMany (char 'a') <* char 'b') \"b\"" $ do
+      let
+        input = "b"
+        output = Right ""
+      parse (matchMany (char 'a') <* char 'b') input `shouldBe` output
+    it "parse (matchMany (char 'a') <* char 'b') \"ab\"" $ do
+      let
+        input = "ab"
+        output = Right "a"
+      parse (matchMany (char 'a') <* char 'b') input `shouldBe` output
+    it "parse (matchMany (char 'a') <* char 'b') \"aab\"" $ do
+      let
+        input = "aab"
+        output = Right "aa"
+      parse (matchMany (char 'a') <* char 'b') input `shouldBe` output
+    it "parse (matchMany (char 'a' *> char 'b') <* char 'c') \"ababc\"" $ do
+      let
+        input = "ababc"
+        output = Right "abab"
+      parse (matchMany (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
+    it "parse (matchMany (char 'a' *> char 'b') <* char 'c') \"abaxc\"" $ do
+      let
+        input = "abaxc"
+        output = Left (Unexpected 3 $ Set.fromList [Char 'b'])
+      parse (matchMany (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
+    it "parse (matchSome (char 'a') <* char 'b') \"b\"" $ do
+      let
+        input = "b"
+        output = Left (Unexpected 0 $ Set.fromList [Char 'a'])
+      parse (matchSome (char 'a') <* char 'b') input `shouldBe` output
+    it "parse (matchSome (char 'a') <* char 'b') \"ab\"" $ do
+      let
+        input = "ab"
+        output = Right "a"
+      parse (matchSome (char 'a') <* char 'b') input `shouldBe` output
+    it "parse (matchSome (char 'a') <* char 'b') \"aab\"" $ do
+      let
+        input = "aab"
+        output = Right "aa"
+      parse (matchSome (char 'a') <* char 'b') input `shouldBe` output
+    it "parse (matchSome (char 'a' *> char 'b') <* char 'c') \"ababc\"" $ do
+      let
+        input = "ababc"
+        output = Right "abab"
+      parse (matchSome (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
+    it "parse (matchSome (char 'a' *> char 'b') <* char 'c') \"abaxc\"" $ do
+      let
+        input = "abaxc"
+        output = Left (Unexpected 3 $ Set.fromList [Char 'b'])
+      parse (matchSome (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
     it "parse digit \"5\"" $ do
       let
         input = "5"

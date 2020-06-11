@@ -11,16 +11,19 @@ module Text.Sage
   , ParseError(..)
   , parse
   , char
-  , lower
   , text
   , symbol
   , digit
-  , digits1
   , decimal
   , eof
+  , lower
+  , matchMany
+  , matchSome
+  , try
+  , pDigit
+  , pLower
   , satisfy
   , takeWhile1
-  , try
   , (<?>)
   , Span(..), spanStart, spanLength
   , spanned
@@ -77,10 +80,11 @@ type MState s = MutableByteArray# s
 newMState :: (# ByteOffset, ByteLength, CharOffset #) -> State# s -> (# State# s, MState s #)
 readState :: MState s -> State# s -> (# State# s, (# ByteOffset, ByteLength, CharOffset #) #)
 readCharOffset :: MState s -> State# s -> (# State# s, CharOffset #)
+readByteOffset :: MState s -> State# s -> (# State# s, ByteOffset #)
 writeState :: MState s -> (# ByteOffset, ByteLength, CharOffset #) -> State# s -> State# s
 writeByteOffset, writeByteLength, writeCharOffset :: MState s -> Int# -> State# s -> State# s
-(newMState, readState, readCharOffset, writeState, writeByteOffset, writeByteLength, writeCharOffset) =
-  (newMState_, readState_, readCharOffset_, writeState_, writeByteOffset_, writeByteLength_, writeCharOffset_)
+(newMState, readState, readCharOffset, readByteOffset, writeState, writeByteOffset, writeByteLength, writeCharOffset) =
+  (newMState_, readState_, readCharOffset_, readByteOffset_, writeState_, writeByteOffset_, writeByteLength_, writeCharOffset_)
   where
     sizeof_int =
       case sIZEOF_INT of
@@ -120,6 +124,12 @@ writeByteOffset, writeByteLength, writeCharOffset :: MState s -> Int# -> State# 
       case readWord8ArrayAsInt# mstate coOffset s of
         (# s', co #) ->
           (# s', co #)
+
+    readByteOffset_ :: MState s -> State# s -> (# State# s, ByteOffset #)
+    readByteOffset_ mstate s =
+      case readWord8ArrayAsInt# mstate boOffset s of
+        (# s', bo #) ->
+          (# s', bo #)
 
     readState_ :: MState s -> State# s -> (# State# s, (# ByteOffset, ByteLength, CharOffset #) #)
     readState_ mstate s =
@@ -428,6 +438,74 @@ satisfySome_ p expecteds =
           then go (# input, state' #)
           else state
 
+{-# inline matchMany #-}
+matchMany :: Parser s a -> Parser s Text
+matchMany (Parser p) =
+  Parser $ \(# es, input, state, s #) ->
+  case readByteOffset state s of
+    (# s', initialOff #) ->
+      case go (# es, input, state, s' #) of
+        (# s'', consumed, es', result #) ->
+          case readByteOffset state s'' of
+            (# s''', finalOff #) ->
+              case result of
+                (# err | #) ->
+                  (# s''', consumed, es', (# err | #) #)
+                (# | _ #) ->
+                  (# s''', consumed, es', (# | Text (Array input) (I# initialOff) (I# (finalOff -# initialOff)) #) #)
+  where
+    go (# es, input, state, s #) =
+      case p (# es, input, state, s #) of
+        (# s', consumed, es', result #) ->
+          case result of
+            (# err | #) ->
+              case consumed of
+                1# -> (# s', consumed, es', (# err | #) #)
+                _ -> (# s', consumed, es', (# | () #) #)
+            (# | _ #) ->
+              go (# es', input, state, s' #)
+
+{-# inline matchSome #-}
+matchSome :: Parser s a -> Parser s Text
+matchSome (Parser p) =
+  Parser $ \(# es, input, state, s #) ->
+  case readByteOffset state s of
+    (# s', initialOff #) ->
+      case p (# es, input, state, s' #) of
+        (# s'', consumed, es', result #) ->
+          case result of
+            (# err | #) ->
+              (# s'', consumed, es', (# err | #) #)
+            (# | _ #) ->
+              case go (# es, input, state, s'' #) of
+                (# s''', consumed', es'', result' #) ->
+                  case readByteOffset state s''' of
+                    (# s'''', finalOff #) ->
+                      case result' of
+                        (# err | #) ->
+                          (# s''''
+                          , orI# consumed consumed'
+                          , es''
+                          , (# err | #)
+                          #)
+                        (# | _ #) ->
+                          (# s''''
+                          , orI# consumed consumed'
+                          , es''
+                          , (# | Text (Array input) (I# initialOff) (I# (finalOff -# initialOff)) #)
+                          #)
+  where
+    go (# es, input, state, s #) =
+      case p (# es, input, state, s #) of
+        (# s', consumed, es', result #) ->
+          case result of
+            (# err | #) ->
+              case consumed of
+                1# -> (# s', consumed, es', (# err | #) #)
+                _ -> (# s', consumed, es', (# | () #) #)
+            (# | _ #) ->
+              go (# es', input, state, s' #)
+
 -- | Only consumes input if the entire value is matched
 {-# inline symbol #-}
 symbol :: Text -> Parser s ()
@@ -552,8 +630,8 @@ satisfy_ :: (Char -> Bool) -> Set Label -> Parser s Char
 satisfy_ p = satisfyMaybe_ (\c -> if p c then Just c else Nothing)
 
 {-# inline satisfy #-}
-satisfy :: (Char -> Bool) -> Parser s Char
-satisfy p = satisfy_ p mempty
+satisfy :: (Char -> Bool, Text) -> Parser s Char
+satisfy (p, n) = satisfy_ p (Set.singleton $ Named n)
 
 digitLabels :: Set Label
 digitLabels =
@@ -569,17 +647,21 @@ digitLabels =
   Set.insert (Char '9') $
   mempty
 
+{-# inline pDigit #-}
+pDigit :: (Char -> Bool, Text)
+pDigit = (isDigit, "digit")
+
+{-# inline pLower #-}
+pLower :: (Char -> Bool, Text)
+pLower = (isLower, "lowercase character")
+
 {-# inline digit #-}
 digit :: Parser s Char
-digit = satisfy isDigit <?> "digit"
-
-{-# inline digits1 #-}
-digits1 :: Parser s Text
-digits1 = satisfySome_ isDigit digitLabels
+digit = satisfy pDigit
 
 {-# inline lower #-}
 lower :: Parser s Char
-lower = satisfy isLower <?> "lowercase character"
+lower = satisfy pLower
 
 decimal :: Num a => Parser s a
 decimal =
@@ -598,5 +680,5 @@ decimal =
 {-# SPECIALISE decimal :: Parser s Word64 #-}
 
 {-# inline takeWhile1 #-}
-takeWhile1 :: (Char -> Bool) -> Parser s Text
-takeWhile1 p = satisfySome_ p mempty
+takeWhile1 :: (Char -> Bool, Text) -> Parser s Text
+takeWhile1 (p, n) = satisfySome_ p (Set.singleton $ Named n)

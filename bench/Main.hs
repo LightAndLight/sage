@@ -5,6 +5,7 @@ module Main where
 import Control.Applicative ((<|>), some, many)
 import Control.DeepSeq (NFData)
 import Criterion.Main
+import Data.Char
 import Data.Foldable (asum)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -185,6 +186,12 @@ decimalMP = Megaparsec.parse (Megaparsec.decimal <* Megaparsec.eof) ""
 decimalAP :: Text -> Attoparsec.Result Int
 decimalAP = Attoparsec.parse (Attoparsec.decimal <* Attoparsec.endOfInput)
 
+digits1 :: Text -> Either Parser.ParseError Text
+digits1 = Parser.parse (Parser.digits1 <* Parser.eof)
+
+digits2 :: Text -> Either Parser.ParseError Text
+digits2 = Parser.parse (Parser.takeWhile1 (Data.Char.isDigit, "digit") <* Parser.eof)
+
 main :: IO ()
 main = do
   print $ parseLambda "x"
@@ -250,6 +257,13 @@ main = do
               [ bench "sage" $ nf decimal input
               , bench "megaparsec" $ nf decimalMP input
               , bench "attoparsec" $ nf decimalAP input
+              ]
+        , let
+            input = "268435459734"
+          in
+            bgroup "digits1"
+              [ bench "digits1" $ nf digits1 input
+              , bench "digits2" $ nf digits2 input
               ]
         ]
     arg -> error $ "Unknown argument " <> show arg
