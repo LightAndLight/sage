@@ -110,6 +110,16 @@ parserTests =
         input = "ac"
         output = Left (Unexpected 0 $ Set.fromList [Symbol "ab"])
       parse (symbol "ab") input `shouldBe` output
+    it "parse (sepBy (char 'a') (char 'b')) \"a\"" $ do
+      let
+        input = "a"
+        output = Right ['a']
+      parse (sepBy (char 'a') (char 'b')) input `shouldBe` output
+    it "parse (sepBy (char 'a') (char 'b')) \"ababa\"" $ do
+      let
+        input = "ababa"
+        output = Right ['a', 'a', 'a']
+      parse (sepBy (char 'a') (char 'b')) input `shouldBe` output
     it "parse (1 <$ symbol \"toast\" <|> 2 <$ symbol \"toot\" <|> 3 <$ symbol \"tock\") \"toot\"" $ do
       let
         input = "toot"

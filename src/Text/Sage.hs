@@ -688,7 +688,7 @@ takeWhile1 (p, n) = satisfySome_ p (Set.singleton $ Named n)
 {-# inline sepBy #-}
 sepBy :: Parser s a -> Parser s sep -> Parser s [a]
 sepBy p sep =
-  (:) <$> p *> many (sep *> p) <|>
+  (:) <$> p <*> many (sep *> p) <|>
   pure []
 
 between :: Parser s l -> Parser s r -> Parser s a -> Parser s a
