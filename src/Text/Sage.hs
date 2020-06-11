@@ -635,20 +635,6 @@ satisfy_ p = satisfyMaybe_ (\c -> if p c then Just c else Nothing)
 satisfy :: (Char -> Bool, Text) -> Parser s Char
 satisfy (p, n) = satisfy_ p (Set.singleton $ Named n)
 
-digitLabels :: Set Label
-digitLabels =
-  Set.insert (Char '0') $
-  Set.insert (Char '1') $
-  Set.insert (Char '2') $
-  Set.insert (Char '3') $
-  Set.insert (Char '4') $
-  Set.insert (Char '5') $
-  Set.insert (Char '6') $
-  Set.insert (Char '7') $
-  Set.insert (Char '8') $
-  Set.insert (Char '9') $
-  mempty
-
 {-# inline pDigit #-}
 pDigit :: (Char -> Bool, Text)
 pDigit = (isDigit, "digit")
@@ -668,7 +654,7 @@ lower = satisfy pLower
 decimal :: Num a => Parser s a
 decimal =
   Text.foldl' (\acc d -> 10 * acc + fromIntegral (ord d) - 48) 0 <$>
-  satisfySome_ isDigit digitLabels
+  takeWhile1 pDigit
 {-# SPECIALISE decimal :: Parser s Int #-}
 {-# SPECIALISE decimal :: Parser s Int8 #-}
 {-# SPECIALISE decimal :: Parser s Int16 #-}

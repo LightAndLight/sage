@@ -88,12 +88,12 @@ parserTests =
     it "parse decimal \"a1223344\"" $ do
       let
         input = "a1223344"
-        output = Left (Unexpected 0 $ Set.fromList $ fmap Char ['0'..'9']) :: Either ParseError Int
+        output = Left (Unexpected 0 $ Set.fromList [Named "digit"]) :: Either ParseError Int
       parse decimal input `shouldBe` output
     it "parse (decimal <* eof) \"1122a344\"" $ do
       let
         input = "1122a344"
-        output = Left (Unexpected 4 $ Set.fromList $ Eof : fmap Char ['0'..'9']) :: Either ParseError Int
+        output = Left (Unexpected 4 $ Set.fromList [Eof, Named "digit"]) :: Either ParseError Int
       parse (decimal <* eof) input `shouldBe` output
     it "parse (symbol \"ab\") \"ab\"" $ do
       let
