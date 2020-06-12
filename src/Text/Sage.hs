@@ -1,4 +1,3 @@
-{-# language BangPatterns #-}
 {-# language DeriveGeneric #-}
 {-# language MagicHash, UnboxedSums, UnboxedTuples #-}
 {-# language OverloadedStrings #-}
@@ -144,13 +143,13 @@ writeByteOffset, writeByteLength, writeCharOffset :: MState s -> Int# -> State# 
                   (# s''', (# bo, bl, co #) #)
 
     writeByteOffset_ :: MState s -> Int# -> State# s -> State# s
-    writeByteOffset_ mstate val s = writeWord8ArrayAsInt# mstate boOffset val s
+    writeByteOffset_ mstate = writeWord8ArrayAsInt# mstate boOffset
 
     writeByteLength_ :: MState s -> Int# -> State# s -> State# s
-    writeByteLength_ mstate val s = writeWord8ArrayAsInt# mstate blOffset val s
+    writeByteLength_ mstate = writeWord8ArrayAsInt# mstate blOffset
 
     writeCharOffset_ :: MState s -> Int# -> State# s -> State# s
-    writeCharOffset_ mstate val s = writeWord8ArrayAsInt# mstate coOffset val s
+    writeCharOffset_ mstate = writeWord8ArrayAsInt# mstate coOffset
 
 {-# inline byteOffset #-}
 byteOffset :: State -> ByteOffset
@@ -325,21 +324,19 @@ char c =
         1# ->
           case iter (# input, state_ #) of
             (# c', state_' #) ->
-              case c == c' of
-                False ->
-                  (# s'
-                  , 0#
-                  , es'
-                  , (# (# charOffset state_, es' #) | #)
-                  #)
-                True ->
-                  case writeState state state_' s' of
-                    s'' ->
-                      (# s''
-                      , 1#
-                      , mempty
-                      , (# | c' #)
-                      #)
+              if c == c' then
+                case writeState state state_' s' of
+                  s'' ->
+                    (# s''
+                    , 1#
+                    , mempty
+                    , (# | c' #)
+                    #) else
+                (# s'
+                , 0#
+                , es'
+                , (# (# charOffset state_, es' #) | #)
+                #)
         _ ->
           (# s'
           , 0#
