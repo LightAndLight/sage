@@ -19,8 +19,10 @@ module Text.Sage
   , matchMany
   , matchSome
   , try
+  , Predicate(..)
   , pDigit
   , pLower
+  , pUpper
   , satisfy
   , takeWhile1
   , sepBy
@@ -33,7 +35,7 @@ where
 
 import Control.Applicative (Alternative(..))
 import Control.DeepSeq (NFData)
-import Data.Char (isDigit, isLower, ord)
+import qualified Data.Char as Char
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Primitive.MachDeps (sIZEOF_INT)
 import Data.Set (Set)
@@ -629,16 +631,29 @@ satisfy_ :: (Char -> Bool) -> Set Label -> Parser s Char
 satisfy_ p = satisfyMaybe_ (\c -> if p c then Just c else Nothing)
 
 {-# inline satisfy #-}
-satisfy :: (Char -> Bool, Text) -> Parser s Char
-satisfy (p, n) = satisfy_ p (Set.singleton $ Named n)
+satisfy :: Predicate Char -> Parser s Char
+satisfy (Predicate p n) = satisfy_ p n
+
+data Predicate a = Predicate { predFunc :: a -> Bool, predLabels :: Set Label }
+
+instance Semigroup (Predicate a) where
+  p1 <> p2 =
+    Predicate (\a -> predFunc p1 a || predFunc p2 a) (predLabels p1 <> predLabels p2)
+
+instance Monoid (Predicate a) where
+  mempty = Predicate (const True) mempty
 
 {-# inline pDigit #-}
-pDigit :: (Char -> Bool, Text)
-pDigit = (isDigit, "digit")
+pDigit :: Predicate Char
+pDigit = Predicate Char.isDigit (Set.singleton $ Named "digit")
 
 {-# inline pLower #-}
-pLower :: (Char -> Bool, Text)
-pLower = (isLower, "lowercase character")
+pLower :: Predicate Char
+pLower = Predicate Char.isLower (Set.singleton $ Named "lowercase character")
+
+{-# inline pUpper #-}
+pUpper :: Predicate Char
+pUpper = Predicate Char.isUpper (Set.singleton $ Named "uppercase character")
 
 {-# inline digit #-}
 digit :: Parser s Char
@@ -650,7 +665,7 @@ lower = satisfy pLower
 
 decimal :: Num a => Parser s a
 decimal =
-  Text.foldl' (\acc d -> 10 * acc + fromIntegral (ord d) - 48) 0 <$>
+  Text.foldl' (\acc d -> 10 * acc + fromIntegral (Char.ord d) - 48) 0 <$>
   takeWhile1 pDigit
 {-# SPECIALISE decimal :: Parser s Int #-}
 {-# SPECIALISE decimal :: Parser s Int8 #-}
@@ -665,8 +680,8 @@ decimal =
 {-# SPECIALISE decimal :: Parser s Word64 #-}
 
 {-# inline takeWhile1 #-}
-takeWhile1 :: (Char -> Bool, Text) -> Parser s Text
-takeWhile1 (p, n) = satisfySome_ p (Set.singleton $ Named n)
+takeWhile1 :: Predicate Char -> Parser s Text
+takeWhile1 (Predicate p n) = satisfySome_ p n
 
 {-# inline sepBy #-}
 sepBy :: Parser s a -> Parser s sep -> Parser s [a]
