@@ -28,7 +28,7 @@ module Text.Sage
   , sepBy
   , between
   , (<?>)
-  , Span(..), spanStart, spanLength
+  , Span(..), spanContains, spanStart, spanLength
   , spanned
   )
 where
@@ -570,7 +570,22 @@ infixl 4 <?>
 (<?>) p name = labelled p (Named name)
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
+
+spanContains :: Span -> Span -> Bool
+spanContains (Span p l) (Span p' l') =
+  case compare p p' of
+    LT -> p + l >= p' + l'
+    EQ -> l >= l'
+    GT -> False
+
+-- | `Span` is a meet semilattice with respect to the `spanContains` ordering
+instance Semigroup Span where
+  Span p l <> Span p' l' =
+    case compare p p' of
+      LT -> Span p (max (p + l) (p' + l') - p)
+      EQ -> Span p (max l l')
+      GT -> Span p' (max (p + l) (p' + l') - p')
 
 spanStart :: Span -> Int
 spanStart (Span s _) = s

@@ -46,8 +46,11 @@ test-suite sage-test
   hs-source-dirs:      test
   main-is:             Main.hs
   other-modules:       Test.Parser
+                     , Test.Span
   build-depends:       base >=4.12 && <5
                      , sage
                      , containers >=0.6
+                     , hedgehog
                      , hspec
+                     , hspec-hedgehog
   ghc-options:         -Wall -Werror
