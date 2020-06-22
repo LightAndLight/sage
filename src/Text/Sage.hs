@@ -570,6 +570,7 @@ infixl 4 <?>
 (<?>) p name = labelled p (Named name)
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
+  deriving (Eq, Show)
 
 spanStart :: Span -> Int
 spanStart (Span s _) = s
