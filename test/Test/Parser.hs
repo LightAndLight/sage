@@ -184,6 +184,11 @@ parserTests =
         input
         `shouldBe`
         output
+    it "parse (some (char 'a') <* char 'b') \"aaac\"" $ do
+      let
+        input = "aaac"
+        output = Left (Unexpected 3 $ Set.fromList [Char 'a', Char 'b'])
+      parse (some (char 'a') <* char 'b') input `shouldBe` output
     it "parse (char '(' *> some (char 'x') <* char ')') \"(xx)\"" $ do
       let
         input = "(xx)"

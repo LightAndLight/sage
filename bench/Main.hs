@@ -246,6 +246,12 @@ main = do
         , bench "sage x (\\y -> a b c d ~)" $ nf parseLambda "x (\\y -> a b c d ~)"
         , bench "megaparsec x (\\y -> a b c d ~)" $ nf parseLambdaMP "x (\\y -> a b c d ~)"
         , bench "attoparsec x (\\y -> a b c d ~)" $ nf parseLambdaAP "x (\\y -> a b c d ~)"
+        , let input = "\\x -> \\y -> x (\\z -> z y) y" in
+          bgroup "\\x -> \\y -> x (\\z -> z y) y"
+          [ bench "sage" $ nf parseLambda input
+          , bench "megaparsec" $ nf parseLambdaMP input
+          , bench "attoparsec" $ nf parseLambdaAP input
+          ]
         , env (Text.readFile "bench/res/depth_5.lam") $ \file ->
             bgroup "32B file"
             [ bench "sage" $ nf parseLambda file

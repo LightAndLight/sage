@@ -58,6 +58,10 @@ import GHC.Exts
 import GHC.Generics (Generic)
 import GHC.Int (Int(I#))
 import GHC.Word (Word16(W16#))
+import Text.Parser.Char (CharParsing)
+import qualified Text.Parser.Char as CharParsing
+import Text.Parser.Combinators (Parsing)
+import qualified Text.Parser.Combinators as Parsing
 
 type Input = ByteArray#
 type ByteOffset = Int#
@@ -707,3 +711,37 @@ sepBy p sep =
 
 between :: Parser s l -> Parser s r -> Parser s a -> Parser s a
 between l r a = l *> a <* r
+
+instance Parsing (Parser s) where
+  {-# inline try #-}
+  try = Text.Sage.try
+
+  {-# inline (<?>) #-}
+  (<?>) p = (Text.Sage.<?>) p . Text.pack
+
+  notFollowedBy (Parser p) =
+    Parser $ \(# es, input, state, s #) ->
+    case readState state s of
+      (# s', state_ #) ->
+        case p (# es, input, state, s' #) of
+          (# s'', consumed, es', res #) ->
+            case res of
+              (# _ | #) ->
+                case consumed of
+                  1# ->
+                    case writeState state state_ s'' of
+                      s''' -> (# s''', 0#, es', (# | () #) #)
+                  _ -> (# s'', 0#, es, (# | () #) #)
+              (# | _ #) -> (# s'', consumed, es', (# (# charOffset state_, mempty #) | #) #)
+  {-# inline unexpected #-}
+  unexpected _ = empty
+
+  {-# inline eof #-}
+  eof = Text.Sage.eof
+
+instance CharParsing (Parser s) where
+  {-# inline satisfy #-}
+  satisfy f = Text.Sage.satisfy (Predicate f mempty)
+
+  {-# inline char #-}
+  char = Text.Sage.char
