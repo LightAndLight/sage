@@ -11,7 +11,8 @@ module Text.Sage
   , ParseError(..)
   , parse
   , string
-  -- , Span(..), spanContains, spanStart, spanLength
+  , skipMany
+  , Span(..), spanContains, spanStart, spanLength
   -- , spanned
   )
 where
@@ -23,7 +24,7 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Generics (Generic)
-import GHC.Exts (Int#, orI#)
+import GHC.Exts (Int#, orI#, inline)
 import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.Char (CharParsing)
@@ -134,16 +135,17 @@ instance Alternative Parser where
                 #)
               (# | a #) -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
+  {-# inline some #-}
   some (Parser p) =
-    Parser $ \state ->
-    case p state of
-      (# consumed, input', pos', ex', ra #) ->
+    Parser $ \(# !input, pos, ex #) ->
+    case p (# input, pos, ex #) of
+      (# consumed, !input', pos', ex', ra #) ->
         case ra of
           (# (# #) | #) -> (# consumed, input', pos', ex', (# (# #) | #) #)
           (# | a #) -> go consumed (a :) (# input', pos', ex' #)
     where
-      go consumed acc state =
-        case p state of
+      go consumed acc (# !input, pos, ex #) =
+        case p (# input, pos, ex #) of
           (# consumed', input', pos', ex', ra #) ->
             let consumed'' = orI# consumed consumed' in
             case ra of
@@ -181,6 +183,26 @@ string t =
    in
      go t input pos
 
+skipMany :: Parser a -> Parser ()
+skipMany (Parser p) =
+  Parser (go 0#)
+  where
+    go consumed state =
+      case p state of
+        (# consumed', input', pos', ex', res #) ->
+          let consumed'' = orI# consumed consumed' in
+          case res of
+            (# (# #) | #) ->
+              (# consumed''
+              , input'
+              , pos'
+              , ex'
+              , case consumed' of
+                  1# -> (# (# #) | #)
+                  _ -> (# | () #)
+              #)
+            (# | _ #) -> go consumed'' (# input', pos', ex' #)
+
 instance Parsing Parser where
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
@@ -194,24 +216,8 @@ instance Parsing Parser where
       (# consumed, input', pos', _, res #) ->
         (# consumed, input', pos', Set.insert (String n) ex, res #)
 
-  skipMany (Parser p) =
-    Parser (go 0#)
-    where
-      go consumed state =
-        case p state of
-          (# consumed', input', pos', ex', res #) ->
-            let consumed'' = orI# consumed consumed' in
-            case res of
-              (# (# #) | #) ->
-                (# consumed''
-                , input'
-                , pos'
-                , ex'
-                , case consumed' of
-                    1# -> (# (# #) | #)
-                    _ -> (# | () #)
-                #)
-              (# | _ #) -> go consumed'' (# input', pos', ex' #)
+  {-# inline skipMany #-}
+  skipMany = Text.Sage.skipMany
 
   skipSome (Parser p) =
     Parser $ \state ->
@@ -254,20 +260,47 @@ instance Parsing Parser where
     else (# 0#, input, pos, Set.insert Eof ex, (# (# #) | #) #)
 
 instance CharParsing Parser where
+  {-# inline satisfy #-}
   satisfy f =
     Parser $ \(# input, pos, ex #) ->
-    case Text.uncons input of
+    case inline Text.uncons input of
       Just (c, input') | f c ->
         let !pos' = pos + 1 in
         (# 1#, input', pos', mempty, (# | c #) #)
       _ ->
         (# 0#, input, pos, ex, (# (# #) | #) #)
 
-  char c =
+  char !c =
     Parser $ \(# input, pos, ex #) ->
     case Text.uncons input of
-      Just (c', input') | c == c' ->
+      Just (!c', input') | c == c' ->
         let !pos' = pos + 1 in
         (# 1#, input', pos', mempty, (# | c #) #)
       _ ->
         (# 0#, input, pos, Set.insert (Char c) ex, (# (# #) | #) #)
+
+  text = Text.Sage.string
+
+data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
+  deriving (Eq, Ord, Show)
+
+spanContains :: Span -> Span -> Bool
+spanContains (Span p l) (Span p' l') =
+  case compare p p' of
+    LT -> p + l >= p' + l'
+    EQ -> l >= l'
+    GT -> False
+
+-- | `Span` is a meet semilattice with respect to the `spanContains` ordering
+instance Semigroup Span where
+  Span p l <> Span p' l' =
+    case compare p p' of
+      LT -> Span p (max (p + l) (p' + l') - p)
+      EQ -> Span p (max l l')
+      GT -> Span p' (max (p + l) (p' + l') - p')
+
+spanStart :: Span -> Int
+spanStart (Span s _) = s
+
+spanLength :: Span -> Int
+spanLength (Span _ l) = l

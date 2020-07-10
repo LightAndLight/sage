@@ -1,11 +1,17 @@
 {-# language OverloadedStrings #-}
 module Test.Parser (parserTests) where
 
-import Control.Applicative ((<|>), empty, some, many)
+import Control.Applicative ((<|>), empty)
+import Data.Char (isDigit)
 import Test.Hspec
 import qualified Data.Set as Set
 
 import Text.Sage
+import Text.Parser.Char
+import Text.Parser.Combinators
+
+decimal :: Parser Int
+decimal = read <$> some (satisfy isDigit <?> "digit")
 
 parserTests :: Spec
 parserTests =
@@ -20,56 +26,6 @@ parserTests =
         input = "b"
         output = Left (Unexpected 0 $ Set.fromList [Char 'a'])
       parse (char 'a') input `shouldBe` output
-    it "parse (matchMany (char 'a') <* char 'b') \"b\"" $ do
-      let
-        input = "b"
-        output = Right ""
-      parse (matchMany (char 'a') <* char 'b') input `shouldBe` output
-    it "parse (matchMany (char 'a') <* char 'b') \"ab\"" $ do
-      let
-        input = "ab"
-        output = Right "a"
-      parse (matchMany (char 'a') <* char 'b') input `shouldBe` output
-    it "parse (matchMany (char 'a') <* char 'b') \"aab\"" $ do
-      let
-        input = "aab"
-        output = Right "aa"
-      parse (matchMany (char 'a') <* char 'b') input `shouldBe` output
-    it "parse (matchMany (char 'a' *> char 'b') <* char 'c') \"ababc\"" $ do
-      let
-        input = "ababc"
-        output = Right "abab"
-      parse (matchMany (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
-    it "parse (matchMany (char 'a' *> char 'b') <* char 'c') \"abaxc\"" $ do
-      let
-        input = "abaxc"
-        output = Left (Unexpected 3 $ Set.fromList [Char 'b'])
-      parse (matchMany (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
-    it "parse (matchSome (char 'a') <* char 'b') \"b\"" $ do
-      let
-        input = "b"
-        output = Left (Unexpected 0 $ Set.fromList [Char 'a'])
-      parse (matchSome (char 'a') <* char 'b') input `shouldBe` output
-    it "parse (matchSome (char 'a') <* char 'b') \"ab\"" $ do
-      let
-        input = "ab"
-        output = Right "a"
-      parse (matchSome (char 'a') <* char 'b') input `shouldBe` output
-    it "parse (matchSome (char 'a') <* char 'b') \"aab\"" $ do
-      let
-        input = "aab"
-        output = Right "aa"
-      parse (matchSome (char 'a') <* char 'b') input `shouldBe` output
-    it "parse (matchSome (char 'a' *> char 'b') <* char 'c') \"ababc\"" $ do
-      let
-        input = "ababc"
-        output = Right "abab"
-      parse (matchSome (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
-    it "parse (matchSome (char 'a' *> char 'b') <* char 'c') \"abaxc\"" $ do
-      let
-        input = "abaxc"
-        output = Left (Unexpected 3 $ Set.fromList [Char 'b'])
-      parse (matchSome (char 'a' *> char 'b') <* char 'c') input `shouldBe` output
     it "parse digit \"5\"" $ do
       let
         input = "5"
@@ -78,7 +34,7 @@ parserTests =
     it "parse digit \"a\"" $ do
       let
         input = "a"
-        output = Left (Unexpected 0 $ Set.fromList [Named "digit"])
+        output = Left (Unexpected 0 $ Set.fromList [String "digit"])
       parse digit input `shouldBe` output
     it "parse decimal \"11223344\"" $ do
       let
@@ -88,28 +44,28 @@ parserTests =
     it "parse decimal \"a1223344\"" $ do
       let
         input = "a1223344"
-        output = Left (Unexpected 0 $ Set.fromList [Named "digit"]) :: Either ParseError Int
+        output = Left (Unexpected 0 $ Set.fromList [String "digit"]) :: Either ParseError Int
       parse decimal input `shouldBe` output
     it "parse (decimal <* eof) \"1122a344\"" $ do
       let
         input = "1122a344"
-        output = Left (Unexpected 4 $ Set.fromList [Eof, Named "digit"]) :: Either ParseError Int
+        output = Left (Unexpected 4 $ Set.fromList [Eof, String "digit"]) :: Either ParseError Int
       parse (decimal <* eof) input `shouldBe` output
-    it "parse (symbol \"ab\") \"ab\"" $ do
+    it "parse (text \"ab\") \"ab\"" $ do
       let
         input = "ab"
-        output = Right ()
-      parse (symbol "ab") input `shouldBe` output
+        output = Right "ab"
+      parse (text "ab") input `shouldBe` output
     it "parse (text \"ab\") \"ac\"" $ do
       let
         input = "ac"
-        output = Left (Unexpected 1 $ Set.fromList [Char 'b'])
+        output = Left (Unexpected 0 $ Set.fromList [Text "ab"])
       parse (text "ab") input `shouldBe` output
-    it "parse (symbol \"ab\") \"ac\"" $ do
+    it "parse (text \"ab\") \"ac\"" $ do
       let
         input = "ac"
-        output = Left (Unexpected 0 $ Set.fromList [Symbol "ab"])
-      parse (symbol "ab") input `shouldBe` output
+        output = Left (Unexpected 0 $ Set.fromList [Text "ab"])
+      parse (text "ab") input `shouldBe` output
     it "parse (sepBy (char 'a') (char 'b')) \"a\"" $ do
       let
         input = "a"
@@ -120,16 +76,16 @@ parserTests =
         input = "ababa"
         output = Right ['a', 'a', 'a']
       parse (sepBy (char 'a') (char 'b')) input `shouldBe` output
-    it "parse (1 <$ symbol \"toast\" <|> 2 <$ symbol \"toot\" <|> 3 <$ symbol \"tock\") \"toot\"" $ do
+    it "parse (1 <$ text \"toast\" <|> 2 <$ text \"toot\" <|> 3 <$ text \"tock\") \"toot\"" $ do
       let
         input = "toot"
         output = Right (2 :: Int)
-      parse (1 <$ symbol "toast" <|> 2 <$ symbol "toot" <|> 3 <$ symbol "tock") input `shouldBe` output
-    it "parse (1 <$ symbol \"toast\" <|> 2 <$ symbol \"toot\" <|> 3 <$ symbol \"tock\") \"tool\"" $ do
+      parse (1 <$ text "toast" <|> 2 <$ text "toot" <|> 3 <$ text "tock") input `shouldBe` output
+    it "parse (1 <$ text \"toast\" <|> 2 <$ text \"toot\" <|> 3 <$ text \"tock\") \"tool\"" $ do
       let
         input = "tool"
-        output = Left (Unexpected 0 $ Set.fromList [Symbol "toast", Symbol "toot", Symbol "tock"])
-      parse ((1::Int) <$ symbol "toast" <|> 2 <$ symbol "toot" <|> 3 <$ symbol "tock") input `shouldBe` output
+        output = Left (Unexpected 0 $ Set.fromList [Text "toast", Text "toot", Text "tock"])
+      parse ((1::Int) <$ text "toast" <|> 2 <$ text "toot" <|> 3 <$ text "tock") input `shouldBe` output
     it "parse (char 'a' *> char 'b') \"ab\"" $ do
       let
         input = "ab"
@@ -178,9 +134,12 @@ parserTests =
     it "parse (char 'a' *> char 'x' <?> \"ax\" <|> char 'b' *> char 'y' <?> \"by\" <|> char 'c' *> char 'z' <?> \"cz\") \"d\"" $ do
       let
         input = "d"
-        output = Left (Unexpected 0 $ Set.fromList [Named "ax", Named "by", Named "cz"])
+        output = Left (Unexpected 0 $ Set.fromList [String "ax", String "by", String "cz"])
       parse
-        (char 'a' *> char 'x' <?> "ax" <|> char 'b' *> char 'y' <?> "by" <|> char 'c' *> char 'z' <?> "cz")
+        ((char 'a' *> char 'x' <?> "ax") <|>
+         (char 'b' *> char 'y' <?> "by") <|>
+         (char 'c' *> char 'z' <?> "cz")
+        )
         input
         `shouldBe`
         output

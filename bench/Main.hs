@@ -5,7 +5,7 @@ module Main where
 import Control.Applicative ((<|>), some, many)
 import Control.DeepSeq (NFData)
 import Criterion.Main
-import Data.Foldable (asum)
+import Data.Char (isLower)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text (readFile)
@@ -19,7 +19,7 @@ import qualified Data.Attoparsec.Text as Attoparsec
 import qualified Text.Megaparsec as Megaparsec
 import qualified Text.Megaparsec.Char as Megaparsec
 import Text.Megaparsec.Parsers (unParsecT)
-import Text.Parser.Char (CharParsing, char, text)
+import Text.Parser.Char (CharParsing, char, satisfy, text)
 import Text.Parser.Combinators (eof, sepBy)
 
 import Parsers (parsersBench)
@@ -37,7 +37,7 @@ expr =
 
     spaces = (char ' ' *> spaces) <|> pure ()
 
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ char c) <$> ['a'..'z']) <* spaces
+    ident = fmap Text.pack (some $ satisfy isLower) <* spaces
 
     lambda =
       Lam <$ char '\\' <* spaces <*>
