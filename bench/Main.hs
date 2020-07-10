@@ -18,118 +18,69 @@ import qualified Text.Sage as Parser
 import qualified Data.Attoparsec.Text as Attoparsec
 import qualified Text.Megaparsec as Megaparsec
 import qualified Text.Megaparsec.Char as Megaparsec
-import qualified Text.Megaparsec.Char.Lexer as Megaparsec (decimal)
+import Text.Megaparsec.Parsers (unParsecT)
+import Text.Parser.Char (CharParsing, char, text)
+import Text.Parser.Combinators (eof, sepBy)
+
+import Parsers (parsersBench)
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
 instance NFData Expr
 
+{-# inline expr #-}
+expr :: CharParsing m => m Expr
+expr =
+  lambda <|>
+  app
+  where
+
+    spaces = (char ' ' *> spaces) <|> pure ()
+
+    ident = fmap Text.pack (some . asum $ (\c -> c <$ char c) <$> ['a'..'z']) <* spaces
+
+    lambda =
+      Lam <$ char '\\' <* spaces <*>
+      ident <* char '-' <* char '>' <* spaces <*>
+      expr
+
+    atom =
+      Var <$> ident <* spaces <|>
+      char '(' *> spaces *> expr <* char ')' <* spaces
+
+    app = foldl App <$> atom <*> many atom
+
 {-# noinline parseLambda #-}
 parseLambda :: Text -> Either Parser.ParseError Expr
 parseLambda = Parser.parse expr
-  where
-    expr :: Parser.Parser s Expr
-    expr =
-      lambda <|>
-      app
-
-    spaces :: Parser.Parser s ()
-    spaces = (Parser.char ' ' *> spaces) <|> pure ()
-
-    ident :: Parser.Parser s Text
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ Parser.char c) <$> ['a'..'z']) <* spaces
-
-    lambda :: Parser.Parser s Expr
-    lambda =
-      Lam <$ Parser.char '\\' <* spaces <*>
-      ident <* Parser.char '-' <* Parser.char '>' <* spaces <*>
-      expr
-
-    atom :: Parser.Parser s Expr
-    atom =
-      Var <$> ident <* spaces <|>
-      Parser.char '(' *> spaces *> expr <* Parser.char ')' <* spaces
-
-    app :: Parser.Parser s Expr
-    app = foldl App <$> atom <*> many atom
 
 {-# noinline parseLambdaMP #-}
 parseLambdaMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Expr
-parseLambdaMP = Megaparsec.parse expr ""
-  where
-    expr :: Megaparsec.Parsec Void Text Expr
-    expr =
-      lambda <|>
-      app
-
-    spaces :: Megaparsec.Parsec Void Text ()
-    spaces = (Megaparsec.char ' ' *> spaces) <|> pure ()
-
-    ident :: Megaparsec.Parsec Void Text Text
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ Megaparsec.char c) <$> ['a'..'z']) <* spaces
-
-    lambda :: Megaparsec.Parsec Void Text Expr
-    lambda =
-      Lam <$ Megaparsec.char '\\' <* spaces <*>
-      ident <* Megaparsec.char '-' <* Megaparsec.char '>' <* spaces <*>
-      expr
-
-    atom :: Megaparsec.Parsec Void Text Expr
-    atom =
-      Var <$> ident <* spaces <|>
-      Megaparsec.char '(' *> spaces *> expr <* Megaparsec.char ')' <* spaces
-
-    app :: Megaparsec.Parsec Void Text Expr
-    app = foldl App <$> atom <*> many atom
+parseLambdaMP = Megaparsec.parse (unParsecT expr) ""
 
 {-# noinline parseLambdaAP #-}
-parseLambdaAP :: Text -> Attoparsec.Result Expr
-parseLambdaAP = Attoparsec.parse expr
-  where
-    expr :: Attoparsec.Parser Expr
-    expr =
-      lambda <|>
-      app
-
-    spaces :: Attoparsec.Parser ()
-    spaces = (Attoparsec.char ' ' *> spaces) <|> pure ()
-
-    ident :: Attoparsec.Parser Text
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ Attoparsec.char c) <$> ['a'..'z']) <* spaces
-
-    lambda :: Attoparsec.Parser Expr
-    lambda =
-      Lam <$ Attoparsec.char '\\' <* spaces <*>
-      ident <* Attoparsec.char '-' <* Attoparsec.char '>' <* spaces <*>
-      expr
-
-    atom :: Attoparsec.Parser Expr
-    atom =
-      Var <$> ident <* spaces <|>
-      Attoparsec.char '(' *> spaces *> expr <* Attoparsec.char ')' <* spaces
-
-    app :: Attoparsec.Parser Expr
-    app = foldl App <$> atom <*> many atom
+parseLambdaAP :: Text -> Either String Expr
+parseLambdaAP = Attoparsec.parseOnly expr
 
 manySymbols :: Text -> Either Parser.ParseError Int
-manySymbols = Parser.parse (ps <* Parser.eof)
+manySymbols = Parser.parse (ps <* eof)
   where
-    ps = (+) <$> p <*> (Parser.char ' ' *> ps <|> pure 0)
+    ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
-      1 <$ Parser.symbol "hello" <|>
-      2 <$ Parser.symbol "goopy" <|>
-      3 <$ Parser.symbol "wonder" <|>
-      4 <$ Parser.symbol "several" <|>
-      5 <$ Parser.symbol "plato" <|>
-      6 <$ Parser.symbol "ticklish"
+      1 <$ text "hello" <|>
+      2 <$ text "goopy" <|>
+      3 <$ text "wonder" <|>
+      4 <$ text "several" <|>
+      5 <$ text "plato" <|>
+      6 <$ text "ticklish"
 
 manyTextsNaive :: Text -> Either Parser.ParseError Int
-manyTextsNaive = Parser.parse (ps <* Parser.eof)
+manyTextsNaive = Parser.parse (ps <* eof)
   where
-    t :: Text -> Parser.Parser s ()
-    t = Text.foldr (\c rest -> Parser.char c *> rest) (pure ())
+    t :: Text -> Parser.Parser ()
+    t = Text.foldr (\c rest -> char c *> rest) (pure ())
 
-    ps = (+) <$> p <*> (Parser.char ' ' *> ps <|> pure 0)
+    ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
       1 <$ t "hello" <|>
       2 <$ t "goopy" <|>
@@ -139,16 +90,16 @@ manyTextsNaive = Parser.parse (ps <* Parser.eof)
       6 <$ t "ticklish"
 
 manyTexts :: Text -> Either Parser.ParseError Int
-manyTexts = Parser.parse (ps <* Parser.eof)
+manyTexts = Parser.parse (ps <* eof)
   where
-    ps = (+) <$> p <*> (Parser.char ' ' *> ps <|> pure 0)
+    ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
-      1 <$ Parser.text "hello" <|>
-      2 <$ Parser.text "goopy" <|>
-      3 <$ Parser.text "wonder" <|>
-      4 <$ Parser.text "several" <|>
-      5 <$ Parser.text "plato" <|>
-      6 <$ Parser.text "ticklish"
+      1 <$ Parser.string "hello" <|>
+      2 <$ Parser.string "goopy" <|>
+      3 <$ Parser.string "wonder" <|>
+      4 <$ Parser.string "several" <|>
+      5 <$ Parser.string "plato" <|>
+      6 <$ Parser.string "ticklish"
 
 manyTextsMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Int
 manyTextsMP = Megaparsec.parse (ps <* Megaparsec.eof) ""
@@ -176,17 +127,8 @@ manyTextsAP = Attoparsec.parse (ps <* Attoparsec.endOfInput)
       5 <$ Attoparsec.string "plato" <|>
       6 <$ Attoparsec.string "ticklish"
 
-decimal :: Text -> Either Parser.ParseError Int
-decimal = Parser.parse (Parser.decimal <* Parser.eof)
-
-decimalMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Int
-decimalMP = Megaparsec.parse (Megaparsec.decimal <* Megaparsec.eof) ""
-
-decimalAP :: Text -> Attoparsec.Result Int
-decimalAP = Attoparsec.parse (Attoparsec.decimal <* Attoparsec.endOfInput)
-
 commasep :: Text -> Either Parser.ParseError [Char]
-commasep = Parser.parse (Parser.sepBy (Parser.char 'a') (Parser.char ',') <* Parser.eof)
+commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof)
 
 commasepMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) [Char]
 commasepMP = Megaparsec.parse (Megaparsec.sepBy (Megaparsec.char 'a') (Megaparsec.char ',') <* Megaparsec.eof) ""
@@ -221,7 +163,8 @@ main = do
           func' "attoparsec" parseLambdaAP file_5
     "time" ->
       withArgs args . defaultMain $
-        [ let
+        [ parsersBench
+        , let
             manyGoodInput = "hello goopy wonder several plato ticklish"
             manyBadInput = "hello goopy wonder several plato ticklish boomy"
           in
@@ -250,7 +193,7 @@ main = do
           bgroup "\\x -> \\y -> x (\\z -> z y) y"
           [ bench "sage" $ nf parseLambda input
           , bench "megaparsec" $ nf parseLambdaMP input
-          , bench "attoparsec" $ nf parseLambdaAP input
+          , bench "attoparsec" $ nf (\i -> case parseLambdaAP i of Right x -> x; Left e -> error e) input
           ]
         , env (Text.readFile "bench/res/depth_5.lam") $ \file ->
             bgroup "32B file"
@@ -258,14 +201,6 @@ main = do
             , bench "megaparsec" $ nf parseLambdaMP file
             , bench "attoparsec" $ nf parseLambdaAP file
             ]
-        , let
-            input = "268435456"
-          in
-            bgroup "decimal"
-              [ bench "sage" $ nf decimal input
-              , bench "megaparsec" $ nf decimalMP input
-              , bench "attoparsec" $ nf decimalAP input
-              ]
         , let
             input = "a,a,a,a,a,a,a,a"
           in

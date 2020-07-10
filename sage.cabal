@@ -38,12 +38,15 @@ library
 benchmark sage-bench
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
+  other-modules:       Parsers
   build-depends:       base >=4.12 && <5
                      , sage
                      , attoparsec
                      , criterion
                      , deepseq >=1.4
                      , megaparsec
+                     , parsers
+                     , parsers-megaparsec
                      , text >=1.2
                      , weigh
   hs-source-dirs:      bench
