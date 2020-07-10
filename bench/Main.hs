@@ -34,7 +34,6 @@ expr =
   lambda <|>
   app
   where
-
     spaces = (char ' ' *> spaces) <|> pure ()
 
     ident = fmap Text.pack (some $ satisfy isLower) <* spaces
@@ -46,7 +45,7 @@ expr =
 
     atom =
       Var <$> ident <* spaces <|>
-      char '(' *> spaces *> expr <* char ')' <* spaces
+      between (char '(' *> spaces) (char ')' <* spaces) expr
 
     app = foldl App <$> atom <*> many atom
 

@@ -14,7 +14,7 @@ import qualified Text.Sage as Sage
 import qualified Data.Attoparsec.Text as Attoparsec
 import qualified Text.Megaparsec as Megaparsec
 import Text.Megaparsec.Parsers (ParsecT(unParsecT))
-import Text.Parser.Combinators (skipMany)
+import Text.Parser.Combinators (between, skipMany)
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 
 data Expr = Var String | Lam String Expr | App Expr Expr
@@ -32,7 +32,7 @@ expr =
     spaces = skipMany (char ' ')
     lam = Lam <$ char '\\' <*> ident <* spaces <* string "->" <* spaces <*> expr
     atom =
-      (char '(' *> expr <* char ')' <|>
+      (between (char '(') (char ')') expr <|>
        Var <$> ident
       ) <*
       spaces
