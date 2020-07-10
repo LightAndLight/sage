@@ -20,7 +20,7 @@ import qualified Text.Megaparsec as Megaparsec
 import qualified Text.Megaparsec.Char as Megaparsec
 import Text.Megaparsec.Parsers (unParsecT)
 import Text.Parser.Char (CharParsing, char, satisfy, text)
-import Text.Parser.Combinators (eof, sepBy)
+import Text.Parser.Combinators (between, eof, sepBy)
 
 import Parsers (parsersBench)
 
