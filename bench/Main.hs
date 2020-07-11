@@ -5,7 +5,7 @@ module Main where
 import Control.Applicative ((<|>), some, many)
 import Control.DeepSeq (NFData)
 import Criterion.Main
-import Data.Foldable (asum)
+import Data.Char (isLower)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text (readFile)
@@ -37,7 +37,7 @@ parseLambda = Parser.parse expr
     spaces = (Parser.char ' ' *> spaces) <|> pure ()
 
     ident :: Parser.Parser s Text
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ Parser.char c) <$> ['a'..'z']) <* spaces
+    ident = fmap Text.pack (some (Parser.satisfy Parser.pLower)) <* spaces
 
     lambda :: Parser.Parser s Expr
     lambda =
@@ -66,7 +66,7 @@ parseLambdaMP = Megaparsec.parse expr ""
     spaces = (Megaparsec.char ' ' *> spaces) <|> pure ()
 
     ident :: Megaparsec.Parsec Void Text Text
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ Megaparsec.char c) <$> ['a'..'z']) <* spaces
+    ident = fmap Text.pack (some (Megaparsec.satisfy isLower)) <* spaces
 
     lambda :: Megaparsec.Parsec Void Text Expr
     lambda =
@@ -95,7 +95,7 @@ parseLambdaAP = Attoparsec.parse expr
     spaces = (Attoparsec.char ' ' *> spaces) <|> pure ()
 
     ident :: Attoparsec.Parser Text
-    ident = fmap Text.pack (some . asum $ (\c -> c <$ Attoparsec.char c) <$> ['a'..'z']) <* spaces
+    ident = fmap Text.pack (some (Attoparsec.satisfy isLower)) <* spaces
 
     lambda :: Attoparsec.Parser Expr
     lambda =
