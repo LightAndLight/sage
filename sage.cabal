@@ -8,9 +8,7 @@ synopsis:            Efficient parser combinators
 description:
   Efficient parser combinators for modern Haskell.
   .
-  <https://github.com/LightAndLight/sage/tree/master/bench Benchmarks> show Sage performing
-  8-9x faster than Megaparsec, 3-4x faster than Attoparsec. Memory usage is also improved -
-  Sage uses around 10% of the memory required by Megaparsec, and half that of Attoparsec.
+  Sage is about 10% faster and twice as memory-efficient as Attoparsec.
   .
   Inspired by Ed Kmett's <https://github.com/ekmett/codex/tree/master/parsnip parsnip> parser,
   which for some reason I thought was called 'parsley'. (I don't care for root vegetable puns)
@@ -25,7 +23,7 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     Text.Sage
-  build-depends:       base >=4.12 && <5
+  build-depends:       base >=4.11 && <5
                      , containers >=0.6
                      , deepseq >=1.4
                      , parsers
