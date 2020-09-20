@@ -161,6 +161,19 @@ instance Alternative Parser where
                 #)
               (# | a #) -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
+instance Monad Parser where
+  Parser p >>= f =
+    Parser $ \(# input, pos, ex #) ->
+    case p (# input, pos, ex #) of
+      (# consumed, input', pos', ex', ra #) ->
+        case ra of
+          (# (# #) | #) ->
+            (# consumed, input', pos', ex', (# (# #) | #) #)
+          (# | a #) ->
+            case unParser (f a) (# input', pos', ex' #) of
+              (# consumed', input'', pos'', ex'', rb #) ->
+                (# orI# consumed consumed', input'', pos'', ex'', rb #)
+
 string :: Text -> Parser Text
 string t =
   Parser $ \(# input, pos, ex #) ->
