@@ -29,6 +29,7 @@ import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
+import Text.Parser.Token (TokenParsing)
 
 data Label
   = Eof
@@ -280,6 +281,8 @@ instance CharParsing Parser where
         (# 0#, input, pos, Set.insert (Char c) ex, (# (# #) | #) #)
 
   text = Text.Sage.string
+
+instance TokenParsing Parser
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   deriving (Eq, Ord, Show)
