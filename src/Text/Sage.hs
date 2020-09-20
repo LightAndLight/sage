@@ -12,6 +12,7 @@ module Text.Sage
   , parse
   , string
   , skipMany
+  , getOffset
   , Span(..), spanContains, spanStart, spanLength
   -- , spanned
   )
@@ -296,6 +297,9 @@ instance CharParsing Parser where
   text = Text.Sage.string
 
 instance TokenParsing Parser
+
+getOffset :: Parser Int
+getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, (# | pos #) #)
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   deriving (Eq, Ord, Show)
