@@ -113,7 +113,8 @@ instance Alternative Parser where
           (# (# #) | #) ->
             case aConsumed of
               1# -> (# aConsumed, input', pos', ex', ra #)
-              _ -> pb (# input, pos, ex' #)
+              _ ->
+                pb (# input', pos', ex' #)
           (# | _ #) ->
             (# aConsumed, input', pos', ex', ra #)
 
@@ -222,8 +223,12 @@ instance Parsing Parser where
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
     case p (# input, pos, ex #) of
-      (# _, input', pos', ex', res #) ->
-        (# 0#, input', pos', ex', res #)
+      (# consumed, input', pos', ex', res #) ->
+        case res of
+          (# _ | #) ->
+            (# 0#, input, pos, ex, res #)
+          (# | _ #) ->
+            (# consumed, input', pos', ex', res #)
 
   (<?>) (Parser p) n =
     Parser $ \(# input, pos, ex #) ->
