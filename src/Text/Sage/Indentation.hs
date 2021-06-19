@@ -19,7 +19,7 @@ import Control.Monad.State (StateT, evalStateT, get, modify, put)
 import Control.Monad.Trans.Class (lift)
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Text.Sage (Parser, Label(..), label)
+import Text.Sage (Parser, Label(..), count, label)
 import Text.Parser.Combinators ((<?>), Parsing, try)
 import Text.Parser.Char (CharParsing, char)
 import Text.Parser.LookAhead (lookAhead)
@@ -79,9 +79,9 @@ dedent =
           label
             (String $ showDedentLevels (previousLvl :| rest))
             (do
-              count <- lookAhead $ length <$> many (char ' ')
+              n <- lookAhead $ count (char ' ')
               pure $
-                if count `elem` levels
+                if n `elem` levels
                 then Just (previousLvl :| rest)
                 else Nothing
             )

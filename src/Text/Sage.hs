@@ -12,6 +12,7 @@ module Text.Sage
   , ParseError(..)
   , parse
   , string
+  , count
   , skipMany
   , getOffset
   , Span(..), spanContains, spanStart, spanLength
@@ -27,7 +28,7 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Generics (Generic)
-import GHC.Exts (Int#, orI#, inline)
+import GHC.Exts ((+#), Int(..), Int#, orI#, inline)
 import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.Char (CharParsing)
@@ -203,6 +204,26 @@ string t =
               (# 0#, input, pos, ex', (# (# #) | #) #)
    in
      go t input pos
+
+count :: Parser a -> Parser Int
+count (Parser p) =
+  Parser (go 0# 0#)
+  where
+    go n consumed state =
+      case p state of
+        (# consumed', input', pos', ex', res #) ->
+          let consumed'' = orI# consumed consumed' in
+          case res of
+            (# (# #) | #) ->
+              (# consumed''
+              , input'
+              , pos'
+              , ex'
+              , case consumed' of
+                  1# -> (# (# #) | #)
+                  _ -> (# | I# n #)
+              #)
+            (# | _ #) -> go (1# +# n) consumed'' (# input', pos', ex' #)
 
 skipMany :: Parser a -> Parser ()
 skipMany (Parser p) =
