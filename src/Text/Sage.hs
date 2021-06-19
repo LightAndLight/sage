@@ -30,6 +30,7 @@ import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
+import Text.Parser.LookAhead (LookAheadParsing(..))
 import Text.Parser.Token (TokenParsing)
 
 data Label
@@ -302,6 +303,13 @@ instance CharParsing Parser where
   text = Text.Sage.string
 
 instance TokenParsing Parser
+
+instance LookAheadParsing Parser where
+  lookAhead (Parser p) =
+    Parser $ \(# input, pos, ex #) ->
+    case p (# input, pos, ex #) of
+      (# _, _, _, _, res #) ->
+        (# 0#, input, pos, ex, res #)
 
 getOffset :: Parser Int
 getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, (# | pos #) #)
