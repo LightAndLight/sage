@@ -1,3 +1,4 @@
+{-# language OverloadedLists #-}
 {-# language OverloadedStrings #-}
 module Test.Parser (parserTests) where
 
@@ -158,6 +159,31 @@ parserTests =
         input = "(xxy"
         output = Left (Unexpected 3 $ Set.fromList [Char ')', Char 'x'])
       parse (char '(' *> some (char 'x') <* char ')') input `shouldBe` output
+    it "parse (try (char 'a' <* empty)) \"a\"" $ do
+      let
+        input = "a"
+        output = Left $ Unexpected 0 [Char 'a']
+      parse (try (char 'a' <* empty)) input `shouldBe` output
+    it "parse (try (char 'a' <* empty) <?> \"thing\") \"a\"" $ do
+      let
+        input = "a"
+        output = Left $ Unexpected 0 [String "thing"]
+      parse (try (char 'a' <* empty) <?> "thing") input `shouldBe` output
+    it "parse (char 'a' *> (try (False <$ char 'b' <* char 'c') <|> True <$ char 'b')) \"abc\"" $ do
+      let
+        input = "abc"
+        output = Right False
+      parse (char 'a' *> (try (False <$ char 'b' <* char 'c')) <|> True <$ char 'b') input `shouldBe` output
+    it "parse (char 'a' *> (try (False <$ char 'b' <* char 'c') <|> True <$ char 'b')) \"ab\"" $ do
+      let
+        input = "ab"
+        output = Right True
+      parse (char 'a' *> (try (False <$ char 'b' <* char 'c')) <|> True <$ char 'b') input `shouldBe` output
+    it "parse (char 'a' *> (try (False <$ char 'b' <* char 'c') <|> True <$ char 'b')) \"ac\"" $ do
+      let
+        input = "ac"
+        output = Left $ Unexpected 1 [Char 'b']
+      parse (char 'a' *> (try (False <$ char 'b' <* char 'c')) <|> True <$ char 'b') input `shouldBe` output
     describe "let atom = 1 <$ char 'x' <|> char '(' *> fmap sum (many atom) <* char ')' in fmap sum (some atom) <* eof" $ do
       let
         atom = 1 <$ char 'x' <|> char '(' *> fmap sum (many atom) <* char ')'
