@@ -8,6 +8,7 @@
 module Text.Sage
   ( Parser
   , Label(..)
+  , label
   , ParseError(..)
   , parse
   , string
@@ -20,6 +21,7 @@ where
 
 import Control.Applicative (Alternative(..))
 import Control.DeepSeq (NFData)
+import Control.Monad (MonadPlus(..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -177,6 +179,8 @@ instance Monad Parser where
               (# consumed', input'', pos'', ex'', rb #) ->
                 (# orI# consumed consumed', input'', pos'', ex'', rb #)
 
+instance MonadPlus Parser
+
 string :: Text -> Parser Text
 string t =
   Parser $ \(# input, pos, ex #) ->
@@ -220,6 +224,13 @@ skipMany (Parser p) =
               #)
             (# | _ #) -> go consumed'' (# input', pos', ex' #)
 
+label :: Label -> Parser a -> Parser a
+label l (Parser p) =
+  Parser $ \(# input, pos, ex #) ->
+  case p (# input, pos, ex #) of
+    (# consumed, input', pos', _, res #) ->
+      (# consumed, input', pos', Set.insert l ex, res #)
+
 instance Parsing Parser where
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
@@ -231,11 +242,7 @@ instance Parsing Parser where
           (# | _ #) ->
             (# consumed, input', pos', ex', res #)
 
-  (<?>) (Parser p) n =
-    Parser $ \(# input, pos, ex #) ->
-    case p (# input, pos, ex #) of
-      (# consumed, input', pos', _, res #) ->
-        (# consumed, input', pos', Set.insert (String n) ex, res #)
+  (<?>) p n = label (String n) p
 
   {-# inline skipMany #-}
   skipMany = Text.Sage.skipMany
