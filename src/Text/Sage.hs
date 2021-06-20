@@ -8,9 +8,11 @@
 module Text.Sage
   ( Parser
   , Label(..)
+  , label
   , ParseError(..)
   , parse
   , string
+  , count
   , skipMany
   , getOffset
   , Span(..), spanContains, spanStart, spanLength
@@ -20,16 +22,18 @@ where
 
 import Control.Applicative (Alternative(..))
 import Control.DeepSeq (NFData)
+import Control.Monad (MonadPlus(..))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Generics (Generic)
-import GHC.Exts (Int#, orI#, inline)
+import GHC.Exts ((+#), Int(..), Int#, orI#, inline)
 import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
+import Text.Parser.LookAhead (LookAheadParsing(..))
 import Text.Parser.Token (TokenParsing)
 
 data Label
@@ -176,6 +180,8 @@ instance Monad Parser where
               (# consumed', input'', pos'', ex'', rb #) ->
                 (# orI# consumed consumed', input'', pos'', ex'', rb #)
 
+instance MonadPlus Parser
+
 string :: Text -> Parser Text
 string t =
   Parser $ \(# input, pos, ex #) ->
@@ -199,6 +205,26 @@ string t =
    in
      go t input pos
 
+count :: Parser a -> Parser Int
+count (Parser p) =
+  Parser (go 0# 0#)
+  where
+    go n consumed state =
+      case p state of
+        (# consumed', input', pos', ex', res #) ->
+          let consumed'' = orI# consumed consumed' in
+          case res of
+            (# (# #) | #) ->
+              (# consumed''
+              , input'
+              , pos'
+              , ex'
+              , case consumed' of
+                  1# -> (# (# #) | #)
+                  _ -> (# | I# n #)
+              #)
+            (# | _ #) -> go (1# +# n) consumed'' (# input', pos', ex' #)
+
 skipMany :: Parser a -> Parser ()
 skipMany (Parser p) =
   Parser (go 0#)
@@ -219,6 +245,13 @@ skipMany (Parser p) =
               #)
             (# | _ #) -> go consumed'' (# input', pos', ex' #)
 
+label :: Label -> Parser a -> Parser a
+label l (Parser p) =
+  Parser $ \(# input, pos, ex #) ->
+  case p (# input, pos, ex #) of
+    (# consumed, input', pos', _, res #) ->
+      (# consumed, input', pos', Set.insert l ex, res #)
+
 instance Parsing Parser where
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
@@ -230,11 +263,7 @@ instance Parsing Parser where
           (# | _ #) ->
             (# consumed, input', pos', ex', res #)
 
-  (<?>) (Parser p) n =
-    Parser $ \(# input, pos, ex #) ->
-    case p (# input, pos, ex #) of
-      (# consumed, input', pos', _, res #) ->
-        (# consumed, input', pos', Set.insert (String n) ex, res #)
+  (<?>) p n = label (String n) p
 
   {-# inline skipMany #-}
   skipMany = Text.Sage.skipMany
@@ -302,6 +331,13 @@ instance CharParsing Parser where
   text = Text.Sage.string
 
 instance TokenParsing Parser
+
+instance LookAheadParsing Parser where
+  lookAhead (Parser p) =
+    Parser $ \(# input, pos, ex #) ->
+    case p (# input, pos, ex #) of
+      (# _, _, _, _, res #) ->
+        (# 0#, input, pos, ex, res #)
 
 getOffset :: Parser Int
 getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, (# | pos #) #)
