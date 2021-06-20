@@ -5,11 +5,10 @@
 module Text.Sage.Indentation
   ( Indented(..)
   , runIndented
-  , nest
-  , relative
-  , absolute
-  , level
-  , dedent
+  , Amount(..)
+  , indented
+  , current
+  , indent
   )
 where
 
@@ -41,7 +40,7 @@ indentation expected =
     actual <- length <$> many (char ' ')
     guard $ actual == expected
   ) <?>
-  ("indent level: " <> show expected)
+  ("indent ==" <> show expected)
 
 currentLevel :: Indented Int
 currentLevel =
@@ -49,23 +48,45 @@ currentLevel =
     lvl :| _ <- get
     pure lvl
 
-absolute :: Int -> Indented ()
-absolute lvl =
-  Indented . lift $ indentation lvl
-
 relative :: Int -> Indented ()
 relative lvl' = do
   lvl <- currentLevel
   let !lvl'' = lvl + lvl'
   Indented . modify $ NonEmpty.cons lvl''
 
-nest :: Int -> Indented a -> Indented a
-nest n p = relative n *> p <* dedent
+data Amount = Add Int | Any
+
+indented :: Amount -> Indented a -> Indented a
+indented amt p =
+  case amt of
+    Add n ->
+      relative n *> p <* dedent
+    Any -> do
+      lvl <- currentLevel
+      (Indented $
+       lift (lookAhead $ parseIndent lvl) >>=
+       modify . NonEmpty.cons) *> p <* dedent
+
+parseIndent :: Int -> Parser Int
+parseIndent lvl =
+  label
+    (String $ "indent >" <> show lvl)
+    (do
+      n <- count $ char ' '
+      n <$ guard (n > lvl)
+    )
+
+indent :: Indented Int
+indent = currentLevel >>= Indented . lift . parseIndent
 
 showDedentLevels :: NonEmpty Int -> String
 showDedentLevels lvls =
-  "dedent to level: " <>
-  (let x :| xs = NonEmpty.sort lvls in show x <> foldMap ((", " <>) . show) xs)
+  "dedent " <>
+  (let
+     x :| xs = NonEmpty.sort lvls
+   in
+     "==" <> show x <>
+     foldMap ((", ==" <>) . show) xs)
 
 dedent :: Indented ()
 dedent =
@@ -87,7 +108,7 @@ dedent =
             )
         maybe empty put mRes
 
-level :: Indented ()
-level = do
+current :: Indented ()
+current = do
   lvl <- currentLevel
   Indented . lift $ indentation lvl

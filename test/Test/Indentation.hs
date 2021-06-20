@@ -8,22 +8,22 @@ import qualified Data.Text as Text
 import Test.Hspec (Spec, describe, it, shouldBe)
 import Text.Parser.Char (char, letter, space, string)
 import Text.Sage (Label(..), ParseError(..), parse)
-import Text.Sage.Indentation (Indented, runIndented, level, nest)
+import Text.Sage.Indentation (Amount(..), Indented, runIndented, current, indented)
 
 data Def
   = Def Text [Def]
   | Print Text
   deriving (Eq, Show)
 
-program :: Indented Def
-program =
+pythonish :: Indented Def
+pythonish =
   def <|>
   print'
   where
     def =
       Def . Text.pack <$ string "def" <* space <*>
       some letter <* string "():" <* char '\n' <*>
-      nest 2 (some (level *> program <* optional (char '\n')))
+      indented Any (some (current *> pythonish <* optional (char '\n')))
     print' =
       Print . Text.pack <$ string "print(\"" <*>
       many letter <* string "\")"
@@ -43,7 +43,7 @@ indentationTests = do
           (runIndented 0 $
            (,) <$>
            char 'a' <* char '\n' <*>
-           nest 2 (level *> char 'b')
+           indented (Add 2) (current *> char 'b')
           ) input
           `shouldBe`
           Right ('a', 'b')
@@ -58,7 +58,7 @@ indentationTests = do
           (runIndented 0 $
            (,) <$>
            char 'a' <* char '\n' <*>
-           nest 4 (level *> char 'b')
+           indented (Add 4) (current *> char 'b')
           )
           input
           `shouldBe`
@@ -74,11 +74,11 @@ indentationTests = do
           (runIndented 0 $
            (,) <$>
            char 'a' <* char '\n' <*>
-           nest 2 (level *> char 'b')
+           indented (Add 2) (current *> char 'b')
           )
           input
           `shouldBe`
-          Left (Unexpected 2 [String "indent level: 2"])
+          Left (Unexpected 2 [String "indent ==2"])
     describe "dedent" $ do
       it "2 spaces then back to 0" $ do
         let
@@ -92,7 +92,7 @@ indentationTests = do
           (runIndented 0 $
            (,,) <$>
            char 'a' <* char '\n' <*>
-           nest 2 (level *> char 'b' <* char '\n') <*>
+           indented (Add 2) (current *> char 'b' <* char '\n') <*>
            char 'c'
           )
           input
@@ -110,12 +110,12 @@ indentationTests = do
           (runIndented 0 $
            (,,) <$>
            char 'a' <* char '\n' <*>
-           nest 2 (level *> char 'b' <* char '\n') <*>
+           indented (Add 2) (current *> char 'b' <* char '\n') <*>
            char 'c'
           )
           input
           `shouldBe`
-          Left (Unexpected 6 [String "dedent to level: 0"])
+          Left (Unexpected 6 [String "dedent ==0"])
     describe "python-style, enforced 2-space indents" $ do
       it "1" $ do
         let
@@ -124,7 +124,7 @@ indentationTests = do
             [ "def hi():"
             , "  print(\"yes\")"
             ]
-        parse (runIndented 0 program) input `shouldBe`
+        parse (runIndented 0 pythonish) input `shouldBe`
           Right (Def "hi" [Print "yes"])
       it "2" $ do
         let
@@ -134,7 +134,7 @@ indentationTests = do
             , "  def g():"
             , "    print(\"yes\")"
             ]
-        parse (runIndented 0 program) input `shouldBe`
+        parse (runIndented 0 pythonish) input `shouldBe`
           Right (Def "f" [Def "g" [Print "yes"]])
       it "3" $ do
         let
@@ -145,7 +145,7 @@ indentationTests = do
             , "    print(\"yes\")"
             , "  print(\"no\")"
             ]
-        parse (runIndented 0 program) input `shouldBe`
+        parse (runIndented 0 pythonish) input `shouldBe`
           Right (Def "f" [Def "g" [Print "yes"], Print "no"])
       it "4" $ do
         let
@@ -153,8 +153,8 @@ indentationTests = do
             Text.unlines
             [ "def f():"
             , "  def g():"
-            , "    print(\"yes\")"
-            , "   print(\"no\")"
+            , "      print(\"yes\")"
+            , "    print(\"no\")"
             ]
-        parse (runIndented 0 program) input `shouldBe`
-          Left (Unexpected 37 [String "dedent to level: 0, 2", String "indent level: 4"])
+        parse (runIndented 0 pythonish) input `shouldBe`
+          Left (Unexpected 39 [String "dedent ==0, ==2", String "indent ==6"])
