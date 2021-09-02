@@ -159,7 +159,7 @@ instance Alternative Parser where
                 , ex'
                 , case consumed' of
                     1# -> Nothing#
-                    _ -> Just# (acc [])
+                    _ -> let !acc' = acc [] in Just# acc'
                 #)
               Just# a -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
@@ -183,8 +183,8 @@ instance Alternative Parser where
                 , pos'
                 , ex'
                 , case consumed' of
-                    1# -> (# (# #) | #)
-                    _ -> (# | acc [] #)
+                    1# -> Nothing#
+                    _ -> let !acc' = acc [] in Just# acc'
                 #)
               Just# a -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
