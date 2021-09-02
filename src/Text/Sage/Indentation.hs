@@ -32,7 +32,7 @@ newtype Indented a
 
 runIndented :: Int -> Indented a -> Parser a
 runIndented lvl (Indented m) =
-  evalStateT m (NonEmpty.singleton lvl)
+  evalStateT m (pure lvl)
 
 indentation :: Int -> Parser ()
 indentation expected =
