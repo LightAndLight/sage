@@ -205,26 +205,26 @@ instance MonadPlus Parser
 
 string :: Text -> Parser Text
 string t =
-  Parser $ \(# input, pos, ex #) ->
-  let
-    ex' = Set.insert (Text t) ex
-    go expect !input' pos' =
-      case Text.uncons expect of
-        Nothing ->
-          (# 1#
-          , input'
-          , pos'
-          , mempty
-          , Just# t
-          #)
-        Just (!expectedC, !expect') ->
-          case Text.uncons input' of
-            Just (actualC, input'') | expectedC == actualC ->
-              go expect' input'' (pos' +# 1#)
-            _ ->
-              (# 0#, input, pos, ex', Nothing# #)
-   in
-     go t input pos
+  Parser $ \state@(# input, pos, _ #) -> go state t input pos
+    where
+      go state expect !input' pos' =
+        case Text.uncons expect of
+          Nothing ->
+            (# 1#
+            , input'
+            , pos'
+            , mempty
+            , Just# t
+            #)
+          Just (!expectedC, !expect') ->
+            case Text.uncons input' of
+              Just (actualC, input'') | expectedC == actualC ->
+                go state expect' input'' (pos' +# 1#)
+              _ ->
+                let
+                  !(# input, pos, ex #) = state
+                in
+                (# 0#, input, pos, Set.insert (Text t) ex, Nothing# #)
 
 count :: Parser a -> Parser Int
 count (Parser p) =
