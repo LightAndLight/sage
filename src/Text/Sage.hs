@@ -339,7 +339,7 @@ instance CharParsing Parser where
       _ ->
         (# 0#, input, pos, ex, Nothing# #)
 
-  char !c =
+  char c =
     Parser $ \(# input, pos, ex #) ->
     case Text.uncons input of
       Just (!c', input') | c == c' ->
