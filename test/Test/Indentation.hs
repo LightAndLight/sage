@@ -158,3 +158,27 @@ indentationTests = do
             ]
         parse (runIndented 0 pythonish) input `shouldBe`
           Left (Unexpected 39 [String "dedent ==0, ==2", String "indent ==6"])
+      it "5" $ do
+        let
+          input =
+            Text.unlines
+            [ "def f():"
+            , "  def g():"
+            , "    def h():"
+            , "      print(\"yes\")"
+            , "    print(\"no\")"
+            ]
+        parse (runIndented 0 pythonish) input `shouldBe`
+          Right (Def "f" [Def "g" [Def "h" [Print "yes"], Print "no"]])
+      it "6" $ do
+        let
+          input =
+            Text.unlines
+            [ "def f():"
+            , "  def g():"
+            , "    def h():"
+            , "      print(\"yes\")"
+            , "  print(\"no\")"
+            ]
+        parse (runIndented 0 pythonish) input `shouldBe`
+          Right (Def "f" [Def "g" [Def "h" [Print "yes"]], Print "no"])

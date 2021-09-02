@@ -6,16 +6,6 @@
 {-# language RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# options_ghc -fno-warn-unused-top-binds #-}
-
-{-# OPTIONS_GHC
-    -ddump-simpl
-    -ddump-to-file
-    -dsuppress-idinfo
-    -dsuppress-coercions
-    -dsuppress-type-applications
-    -dsuppress-uniques
-    -dsuppress-module-prefixes
-#-}
 module Text.Sage
   ( Parser
   , Label(..)
