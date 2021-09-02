@@ -63,7 +63,7 @@ data ParseError
 instance NFData ParseError
 
 type Consumed# = Int#
-type Pos = Int
+type Pos# = Int#
 
 type Maybe# a = (# (# #) | a #)
 
@@ -78,16 +78,16 @@ pattern Just# a = (# | a #)
 newtype Parser a
   = Parser
   { unParser ::
-      (# Text, Pos, Set Label #) ->
-      (# Consumed#, Text, Pos, Set Label, Maybe# a #)
+      (# Text, Pos#, Set Label #) ->
+      (# Consumed#, Text, Pos#, Set Label, Maybe# a #)
   }
 
 parse :: Parser a -> Text -> Either ParseError a
 parse (Parser p) input =
-  case p (# input, 0, mempty #) of
+  case p (# input, 0#, mempty #) of
     (# _, _, pos, ex, res #) ->
       case res of
-        Nothing# -> Left $ Unexpected pos ex
+        Nothing# -> Left $ Unexpected (I# pos) ex
         Just# a -> Right a
 
 instance Functor Parser where
@@ -208,7 +208,7 @@ string t =
   Parser $ \(# input, pos, ex #) ->
   let
     ex' = Set.insert (Text t) ex
-    go expect !input' !pos' =
+    go expect !input' pos' =
       case Text.uncons expect of
         Nothing ->
           (# 1#
@@ -220,7 +220,7 @@ string t =
         Just (!expectedC, !expect') ->
           case Text.uncons input' of
             Just (actualC, input'') | expectedC == actualC ->
-              go expect' input'' (pos' + 1)
+              go expect' input'' (pos' +# 1#)
             _ ->
               (# 0#, input, pos, ex', Nothing# #)
    in
@@ -335,8 +335,7 @@ instance CharParsing Parser where
     Parser $ \(# input, pos, ex #) ->
     case inline Text.uncons input of
       Just (c, input') | f c ->
-        let !pos' = pos + 1 in
-        (# 1#, input', pos', mempty, Just# c #)
+        (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
         (# 0#, input, pos, ex, Nothing# #)
 
@@ -344,8 +343,7 @@ instance CharParsing Parser where
     Parser $ \(# input, pos, ex #) ->
     case Text.uncons input of
       Just (!c', input') | c == c' ->
-        let !pos' = pos + 1 in
-        (# 1#, input', pos', mempty, Just# c #)
+        (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
         (# 0#, input, pos, Set.insert (Char c) ex, Nothing# #)
 
@@ -361,7 +359,7 @@ instance LookAheadParsing Parser where
         (# 0#, input, pos, ex, res #)
 
 getOffset :: Parser Int
-getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# pos #)
+getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# (I# pos) #)
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   deriving (Eq, Ord, Show)
