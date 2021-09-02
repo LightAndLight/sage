@@ -112,7 +112,7 @@ instance Applicative Parser where
       (# fConsumed, input', pos', ex', rf #) ->
         case rf of
           Nothing# ->
-            (# fConsumed, input', pos', ex', (# (# #) | #) #)
+            (# fConsumed, input', pos', ex', Nothing# #)
           Just# f ->
             case pa (# input', pos', ex' #) of
               (# aConsumed, input'', pos'', ex'', ra #) ->
@@ -241,8 +241,8 @@ count (Parser p) =
               , pos'
               , ex'
               , case consumed' of
-                  1# -> (# (# #) | #)
-                  _ -> (# | I# n #)
+                  1# -> Nothing#
+                  _ -> Just# (I# n)
               #)
             Just# _ -> go (1# +# n) consumed'' (# input', pos', ex' #)
 
@@ -261,8 +261,8 @@ skipMany (Parser p) =
               , pos'
               , ex'
               , case consumed' of
-                  1# -> (# (# #) | #)
-                  _ -> (# | () #)
+                  1# -> Nothing#
+                  _ -> Just# ()
               #)
             Just# _ -> go consumed'' (# input', pos', ex' #)
 
@@ -294,8 +294,8 @@ instance Parsing Parser where
     case p state of
       (# consumed, input', pos', ex', res #) ->
         case res of
-          (# (# #) | #) -> (# consumed, input', pos', ex', (# (# #) | #) #)
-          (# | _ #) -> go consumed (# input', pos', ex' #)
+          Nothing# -> (# consumed, input', pos', ex', Nothing# #)
+          Just# _ -> go consumed (# input', pos', ex' #)
     where
       go consumed state =
         case p state of
@@ -308,8 +308,8 @@ instance Parsing Parser where
                 , pos'
                 , ex'
                 , case consumed' of
-                    1# -> (# (# #) | #)
-                    _ -> (# | () #)
+                    1# -> Nothing#
+                    _ -> Just# ()
                 #)
               Just# _ -> go consumed'' (# input', pos', ex' #)
 
