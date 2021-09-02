@@ -153,6 +153,10 @@ lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequ
 sageMany :: Text -> [Char]
 sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
 
+{-# NOINLINE sageSome #-}
+sageSome :: Text -> [Char]
+sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
+
 main :: IO ()
 main = do
   print $ parseLambda "x"
@@ -182,6 +186,7 @@ main = do
       withArgs args . defaultMain $
         [ bgroup "sage"
           [ bench "many" $ nf sageMany lipsum
+          , bench "some" $ nf sageSome lipsum
           ]
         , parsersBench
         , let
