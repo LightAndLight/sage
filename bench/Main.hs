@@ -164,6 +164,13 @@ a1000 = Text.replicate 1000 "a"
 sageChar :: Text -> [Char]
 sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
 
+hello1000 :: Text
+hello1000 = Text.replicate 1000 "hello"
+
+{-# NOINLINE sageString #-}
+sageString :: Text -> [Text]
+sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello")
+
 main :: IO ()
 main = do
   print $ parseLambda "x"
@@ -180,6 +187,7 @@ main = do
           func' "many" sageMany lipsum
           func' "some" sageSome lipsum
           func' "char" sageChar a1000
+          func' "string" sageString hello1000
         func "sage x (\\y -> z)" parseLambda "x (\\y -> z)"
         func "megaparsec x (\\y -> z)" parseLambdaMP "x (\\y -> z)"
         func "attoparsec x (\\y -> z)" parseLambdaAP "x (\\y -> z)"
@@ -199,6 +207,7 @@ main = do
           [ bench "many" $ nf sageMany lipsum
           , bench "some" $ nf sageSome lipsum
           , bench "char" $ nf sageChar a1000
+          , bench "string" $ nf sageString hello1000
           ]
         , parsersBench
         , let
