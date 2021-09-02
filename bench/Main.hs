@@ -157,6 +157,13 @@ sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
 sageSome :: Text -> [Char]
 sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
 
+a1000 :: Text
+a1000 = Text.replicate 1000 "a"
+
+{-# NOINLINE sageChar #-}
+sageChar :: Text -> [Char]
+sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
+
 main :: IO ()
 main = do
   print $ parseLambda "x"
@@ -169,6 +176,10 @@ main = do
     "memory" -> do
       file_5 <- Text.readFile "bench/res/depth_5.lam"
       mainWith $ do
+        wgroup "sage" $ do
+          func' "many" sageMany lipsum
+          func' "some" sageSome lipsum
+          func' "char" sageChar a1000
         func "sage x (\\y -> z)" parseLambda "x (\\y -> z)"
         func "megaparsec x (\\y -> z)" parseLambdaMP "x (\\y -> z)"
         func "attoparsec x (\\y -> z)" parseLambdaAP "x (\\y -> z)"
@@ -187,6 +198,7 @@ main = do
         [ bgroup "sage"
           [ bench "many" $ nf sageMany lipsum
           , bench "some" $ nf sageSome lipsum
+          , bench "char" $ nf sageChar a1000
           ]
         , parsersBench
         , let
