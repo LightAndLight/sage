@@ -1,5 +1,15 @@
 {-# language DeriveGeneric #-}
 {-# language OverloadedStrings #-}
+
+{-# OPTIONS_GHC
+    -ddump-simpl
+    -ddump-to-file
+    -dsuppress-idinfo
+    -dsuppress-coercions
+    -dsuppress-type-applications
+    -dsuppress-uniques
+    -dsuppress-module-prefixes
+#-}
 module Main where
 
 import Control.Applicative ((<|>), some, many)
@@ -18,11 +28,12 @@ import qualified Text.Sage as Parser
 import qualified Data.Attoparsec.Text as Attoparsec
 import qualified Text.Megaparsec as Megaparsec
 import qualified Text.Megaparsec.Char as Megaparsec
-import Text.Megaparsec.Parsers (unParsecT)
-import Text.Parser.Char (CharParsing, char, satisfy, text)
+import Text.Megaparsec.Parsers (unParsecT, CharParsing (anyChar))
+import Text.Parser.Char (char, satisfy, text)
 import Text.Parser.Combinators (between, eof, sepBy)
 
 import Parsers (parsersBench)
+import qualified Data.Either as Either
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -135,6 +146,13 @@ commasepMP = Megaparsec.parse (Megaparsec.sepBy (Megaparsec.char 'a') (Megaparse
 commasepAP :: Text -> Attoparsec.Result [Char]
 commasepAP = Attoparsec.parse (Attoparsec.sepBy (Attoparsec.char 'a') (Attoparsec.char ',') <* Attoparsec.endOfInput)
 
+lipsum :: Text
+lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequat sodales elit eget egestas. Suspendisse eget augue accumsan velit accumsan fringilla. Nam dolor ex, pulvinar id elit quis, eleifend porta quam. Vivamus tristique fringilla enim quis cursus. Sed ex eros, volutpat quis iaculis ut, mollis quis odio. Sed id turpis quis libero varius dictum. Aliquam ut massa non diam aliquam feugiat. Vestibulum condimentum mauris vel orci aliquet iaculis. Maecenas nec est dictum, sodales lorem eu, venenatis elit. Vestibulum eu eros ac ipsum maximus bibendum eu luctus magna. Nulla vitae lorem interdum, efficitur nibh non, auctor diam. In maximus quis arcu dignissim euismod. Sed maximus et augue quis fringilla. Donec sit amet felis nec nisi finibus sagittis eget ac est. Nam at sollicitudin sapien. Cras commodo felis ac sodales eleifend. Integer vitae iaculis risus. Fusce aliquam vel leo et tristique. Sed fringilla, metus non consequat pellentesque, eros ligula vehicula ante, eget volutpat."
+
+{-# NOINLINE sageMany #-}
+sageMany :: Text -> [Char]
+sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
+
 main :: IO ()
 main = do
   print $ parseLambda "x"
@@ -162,7 +180,10 @@ main = do
           func' "attoparsec" parseLambdaAP file_5
     "time" ->
       withArgs args . defaultMain $
-        [ parsersBench
+        [ bgroup "sage"
+          [ bench "many" $ nf sageMany lipsum
+          ]
+        , parsersBench
         , let
             manyGoodInput = "hello goopy wonder several plato ticklish"
             manyBadInput = "hello goopy wonder several plato ticklish boomy"
