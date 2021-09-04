@@ -7,17 +7,20 @@
 {-# language ScopedTypeVariables #-}
 {-# options_ghc -fno-warn-unused-top-binds #-}
 module Text.Sage
-  ( Parser
-  , Label(..)
-  , label
-  , ParseError(..)
+  ( -- * Parsing
+    Parser
   , parse
+    -- * Errors
+  , Label(..)
+  , ParseError(..)
+    -- * Spans
+  , Span(..), spanContains, spanStart, spanLength -- , spanned
+    -- * Combinators
+  , label
   , string
   , count
   , skipMany
   , getOffset
-  , Span(..), spanContains, spanStart, spanLength
-  -- , spanned
   )
 where
 
