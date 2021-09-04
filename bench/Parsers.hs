@@ -1,4 +1,5 @@
 {-# language DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# language OverloadedStrings #-}
 module Parsers (parsersBench) where
 
@@ -16,6 +17,9 @@ import qualified Text.Megaparsec as Megaparsec
 import Text.Megaparsec.Parsers (ParsecT(unParsecT))
 import Text.Parser.Combinators (between, skipMany)
 import Text.Parser.Char (CharParsing, char, satisfy, string)
+import Streaming.Class (Stream)
+import Data.Functor.Of (Of)
+import Data.Functor.Identity (Identity)
 
 data Expr = Var String | Lam String Expr | App Expr Expr
   deriving Generic
@@ -38,7 +42,7 @@ expr =
       spaces
     app = foldl App <$> atom <*> many atom
 
-exprSage :: Sage.Parser Expr
+exprSage :: Stream (Of Char) Identity () s => Sage.Parser s Expr
 exprSage = expr
 
 exprMP :: Megaparsec.Parsec Void Text Expr

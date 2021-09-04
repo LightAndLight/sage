@@ -1,4 +1,5 @@
 {-# language DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# language OverloadedStrings #-}
 
 {-# OPTIONS_GHC
@@ -34,6 +35,9 @@ import Text.Parser.Combinators (between, eof, sepBy)
 
 import Parsers (parsersBench)
 import qualified Data.Either as Either
+import Streaming.Class (Stream)
+import Data.Functor.Of (Of)
+import Data.Functor.Identity (Identity)
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -87,7 +91,7 @@ manySymbols = Parser.parse (ps <* eof)
 manyTextsNaive :: Text -> Either Parser.ParseError Int
 manyTextsNaive = Parser.parse (ps <* eof)
   where
-    t :: Text -> Parser.Parser ()
+    t :: Stream (Of Char) Identity () s => Text -> Parser.Parser s ()
     t = Text.foldr (\c rest -> char c *> rest) (pure ())
 
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)

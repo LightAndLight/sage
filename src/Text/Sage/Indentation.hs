@@ -2,6 +2,9 @@
 {-# language UnboxedSums, UnboxedTuples #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language MagicHash #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Text.Sage.Indentation
   ( Indented(..)
   , runIndented
@@ -22,19 +25,24 @@ import Text.Sage (Parser, Label(..), count, label)
 import Text.Parser.Combinators ((<?>), Parsing, try)
 import Text.Parser.Char (CharParsing, char)
 import Text.Parser.LookAhead (lookAhead)
+import Streaming.Class (Stream)
+import Data.Functor.Of (Of)
+import Data.Functor.Identity (Identity)
 
-newtype Indented a
-  = Indented { unIndented :: StateT (NonEmpty Int) Parser a }
+newtype Indented s a
+  = Indented { unIndented :: StateT (NonEmpty Int) (Parser s) a }
   deriving
     ( Functor, Applicative, Alternative, Monad
-    , Parsing, CharParsing
     )
 
-runIndented :: Int -> Indented a -> Parser a
+deriving instance Stream (Of Char) Identity () s => Parsing (Indented s)
+deriving instance Stream (Of Char) Identity () s => CharParsing (Indented s)
+
+runIndented :: Int -> Indented s a -> Parser s a
 runIndented lvl (Indented m) =
   evalStateT m (pure lvl)
 
-indentation :: Int -> Parser ()
+indentation :: Stream (Of Char) Identity () s => Int -> Parser s ()
 indentation expected =
   try (do
     actual <- length <$> many (char ' ')
@@ -42,13 +50,13 @@ indentation expected =
   ) <?>
   ("indent ==" <> show expected)
 
-currentLevel :: Indented Int
+currentLevel :: Indented s Int
 currentLevel =
   Indented $ do
     lvl :| _ <- get
     pure lvl
 
-relative :: Int -> Indented ()
+relative :: Int -> Indented s ()
 relative lvl' = do
   lvl <- currentLevel
   let !lvl'' = lvl + lvl'
@@ -56,7 +64,7 @@ relative lvl' = do
 
 data Amount = Add Int | Any
 
-indented :: Amount -> Indented a -> Indented a
+indented :: Stream (Of Char) Identity () s => Amount -> Indented s a -> Indented s a
 indented amt p =
   case amt of
     Add n ->
@@ -67,7 +75,7 @@ indented amt p =
        lift (lookAhead $ parseIndent lvl) >>=
        modify . NonEmpty.cons) *> p <* dedent
 
-parseIndent :: Int -> Parser Int
+parseIndent :: Stream (Of Char) Identity () s => Int -> Parser s Int
 parseIndent lvl =
   label
     (String $ "indent >" <> show lvl)
@@ -76,7 +84,7 @@ parseIndent lvl =
       n <$ guard (n > lvl)
     )
 
-indent :: Indented Int
+indent :: Stream (Of Char) Identity () s => Indented s Int
 indent = currentLevel >>= Indented . lift . parseIndent
 
 showDedentLevels :: NonEmpty Int -> String
@@ -88,7 +96,7 @@ showDedentLevels lvls =
      "==" <> show x <>
      foldMap ((", ==" <>) . show) xs)
 
-dedent :: Indented ()
+dedent :: Stream (Of Char) Identity () s => Indented s ()
 dedent =
   Indented $ do
     _currentLvl :| levels <- get
@@ -108,7 +116,7 @@ dedent =
             )
         maybe empty put mRes
 
-current :: Indented ()
+current :: Stream (Of Char) Identity () s => Indented s ()
 current = do
   lvl <- currentLevel
   Indented . lift $ indentation lvl

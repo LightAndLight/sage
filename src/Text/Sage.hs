@@ -1,4 +1,6 @@
 {-# language BangPatterns #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# language PatternSynonyms #-}
 {-# language DeriveGeneric #-}
 {-# language MagicHash, UnboxedSums, UnboxedTuples #-}
@@ -32,13 +34,17 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Generics (Generic)
-import GHC.Exts ((+#), Int(..), Int#, orI#, inline)
+import GHC.Exts ((+#), Int(..), Int#, orI#)
 import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
 import Text.Parser.LookAhead (LookAheadParsing(..))
 import Text.Parser.Token (TokenParsing)
+import Streaming.Class (Stream)
+import Data.Functor.Of (Of ((:>)))
+import Data.Functor.Identity (Identity (runIdentity))
+import qualified Streaming.Class as Stream
 
 data Label
   = Eof
@@ -68,14 +74,14 @@ pattern Just# a = (# | a #)
 
 {-# complete Nothing#, Just# #-}
 
-newtype Parser a
+newtype Parser s a
   = Parser
   { unParser ::
-      (# Text, Pos#, Set Label #) ->
-      (# Consumed#, Text, Pos#, Set Label, Maybe# a #)
+      (# s, Pos#, Set Label #) ->
+      (# Consumed#, s, Pos#, Set Label, Maybe# a #)
   }
 
-parse :: Parser a -> Text -> Either ParseError a
+parse :: Parser s a -> s -> Either ParseError a
 parse (Parser p) input =
   case p (# input, 0#, mempty #) of
     (# _, _, pos, ex, res #) ->
@@ -83,7 +89,7 @@ parse (Parser p) input =
         Nothing# -> Left $ Unexpected (I# pos) ex
         Just# a -> Right a
 
-instance Functor Parser where
+instance Functor (Parser s) where
   fmap f (Parser p) =
     Parser $ \input ->
     case p input of
@@ -97,7 +103,7 @@ instance Functor Parser where
             Just# a -> Just# (f a)
         #)
 
-instance Applicative Parser where
+instance Applicative (Parser s) where
   pure a = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# a #)
   Parser pf <*> Parser pa =
     Parser $ \input ->
@@ -120,7 +126,7 @@ instance Applicative Parser where
                       Just# (f a)
                 #)
 
-instance Alternative Parser where
+instance Alternative (Parser s) where
   empty = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Nothing# #)
 
   Parser pa <|> Parser pb =
@@ -181,7 +187,7 @@ instance Alternative Parser where
                 #)
               Just# a -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
-instance Monad Parser where
+instance Monad (Parser s) where
   Parser p >>= f =
     Parser $ \(# input, pos, ex #) ->
     case p (# input, pos, ex #) of
@@ -194,12 +200,13 @@ instance Monad Parser where
               (# consumed', input'', pos'', ex'', rb #) ->
                 (# orI# consumed consumed', input'', pos'', ex'', rb #)
 
-instance MonadPlus Parser
+instance MonadPlus (Parser s)
 
-string :: Text -> Parser Text
+string :: forall s. Stream (Of Char) Identity () s => Text -> Parser s Text
 string t =
   Parser $ \state@(# input, pos, _ #) -> go state t input pos
     where
+      go :: (# s, Pos#, Set Label #) -> Text -> s -> Pos# -> (# Consumed#, s, Pos#, Set Label, Maybe# Text #)
       go state expect !input' pos' =
         case Text.uncons expect of
           Nothing ->
@@ -210,8 +217,8 @@ string t =
             , Just# t
             #)
           Just (!expectedC, !expect') ->
-            case Text.uncons input' of
-              Just (actualC, input'') | expectedC == actualC ->
+            case runIdentity $ Stream.uncons input' of
+              Right (actualC :> input'') | expectedC == actualC ->
                 go state expect' input'' (pos' +# 1#)
               _ ->
                 let
@@ -219,7 +226,7 @@ string t =
                 in
                 (# 0#, input, pos, Set.insert (Text t) ex, Nothing# #)
 
-count :: Parser a -> Parser Int
+count :: Parser s a -> Parser s Int
 count (Parser p) =
   Parser (go 0# 0#)
   where
@@ -239,7 +246,7 @@ count (Parser p) =
               #)
             Just# _ -> go (1# +# n) consumed'' (# input', pos', ex' #)
 
-skipMany :: Parser a -> Parser ()
+skipMany :: Parser s a -> Parser s ()
 skipMany (Parser p) =
   Parser (go 0#)
   where
@@ -259,14 +266,14 @@ skipMany (Parser p) =
               #)
             Just# _ -> go consumed'' (# input', pos', ex' #)
 
-label :: Label -> Parser a -> Parser a
+label :: Label -> Parser s a -> Parser s a
 label l (Parser p) =
   Parser $ \(# input, pos, ex #) ->
   case p (# input, pos, ex #) of
     (# consumed, input', pos', _, res #) ->
       (# consumed, input', pos', Set.insert l ex, res #)
 
-instance Parsing Parser where
+instance Stream (Of Char) Identity () s => Parsing (Parser s) where
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
     case p (# input, pos, ex #) of
@@ -318,40 +325,40 @@ instance Parsing Parser where
 
   eof =
     Parser $ \(# input, pos, ex #) ->
-    if Text.null input
-    then (# 0#, input, pos, ex, Just# () #)
-    else (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
+    case runIdentity $ Stream.uncons input of
+      Left () -> (# 0#, input, pos, ex, Just# () #)
+      Right{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
 
-instance CharParsing Parser where
+instance Stream (Of Char) Identity () s => CharParsing (Parser s) where
   {-# inline satisfy #-}
   satisfy f =
     Parser $ \(# input, pos, ex #) ->
-    case inline Text.uncons input of
-      Just (c, input') | f c ->
+    case runIdentity $ Stream.uncons input of
+      Right (c :> input') | f c ->
         (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
         (# 0#, input, pos, ex, Nothing# #)
 
   char c =
     Parser $ \(# input, pos, ex #) ->
-    case Text.uncons input of
-      Just (!c', input') | c == c' ->
+    case runIdentity $ Stream.uncons input of
+      Right (c' :> input') | c == c' ->
         (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
         (# 0#, input, pos, Set.insert (Char c) ex, Nothing# #)
 
   text = Text.Sage.string
 
-instance TokenParsing Parser
+instance Stream (Of Char) Identity () s => TokenParsing (Parser s)
 
-instance LookAheadParsing Parser where
+instance Stream (Of Char) Identity () s => LookAheadParsing (Parser s) where
   lookAhead (Parser p) =
     Parser $ \(# input, pos, ex #) ->
     case p (# input, pos, ex #) of
       (# _, _, _, _, res #) ->
         (# 0#, input, pos, ex, res #)
 
-getOffset :: Parser Int
+getOffset :: Parser s Int
 getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# (I# pos) #)
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
