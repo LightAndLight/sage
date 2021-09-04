@@ -26,8 +26,8 @@ import Text.Parser.Combinators ((<?>), Parsing, try)
 import Text.Parser.Char (CharParsing, char)
 import Text.Parser.LookAhead (lookAhead)
 import Streaming.Class (Stream)
-import Data.Functor.Of (Of)
 import Data.Functor.Identity (Identity)
+import Data.Functor.Of (Of)
 
 newtype Indented s a
   = Indented { unIndented :: StateT (NonEmpty Int) (Parser s) a }

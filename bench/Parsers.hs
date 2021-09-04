@@ -18,8 +18,8 @@ import Text.Megaparsec.Parsers (ParsecT(unParsecT))
 import Text.Parser.Combinators (between, skipMany)
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Streaming.Class (Stream)
-import Data.Functor.Of (Of)
 import Data.Functor.Identity (Identity)
+import Data.Functor.Of (Of)
 
 data Expr = Var String | Lam String Expr | App Expr Expr
   deriving Generic

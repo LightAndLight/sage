@@ -36,8 +36,8 @@ import Text.Parser.Combinators (between, eof, sepBy)
 import Parsers (parsersBench)
 import qualified Data.Either as Either
 import Streaming.Class (Stream)
-import Data.Functor.Of (Of)
 import Data.Functor.Identity (Identity)
+import Data.Functor.Of (Of)
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)

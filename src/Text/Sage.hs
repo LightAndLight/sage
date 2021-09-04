@@ -1,4 +1,5 @@
 {-# language BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# language PatternSynonyms #-}
@@ -41,7 +42,7 @@ import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
 import Text.Parser.LookAhead (LookAheadParsing(..))
 import Text.Parser.Token (TokenParsing)
-import Streaming.Class (Stream)
+import Streaming.Class (Stream, fromResult)
 import Data.Functor.Of (Of ((:>)))
 import Data.Functor.Identity (Identity (runIdentity))
 import qualified Streaming.Class as Stream
@@ -218,7 +219,7 @@ string t =
             , Just# t
             #)
           Just (!expectedC, !expect') ->
-            case runIdentity $ Stream.uncons input' of
+            case fromResult . runIdentity $ Stream.uncons input' of
               Right (actualC :> input'') | expectedC == actualC ->
                 go state expect' input'' (pos' +# 1#)
               _ ->
@@ -326,7 +327,7 @@ instance Stream (Of Char) Identity () s => Parsing (Parser s) where
 
   eof =
     Parser $ \(# input, pos, ex #) ->
-    case runIdentity $ Stream.uncons input of
+    case fromResult . runIdentity $ Stream.uncons input of
       Left () -> (# 0#, input, pos, ex, Just# () #)
       Right{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
 
@@ -334,7 +335,7 @@ instance Stream (Of Char) Identity () s => CharParsing (Parser s) where
   {-# inline satisfy #-}
   satisfy f =
     Parser $ \(# input, pos, ex #) ->
-    case runIdentity $ Stream.uncons input of
+    case fromResult . runIdentity $ Stream.uncons input of
       Right (c :> input') | f c ->
         (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
@@ -342,7 +343,7 @@ instance Stream (Of Char) Identity () s => CharParsing (Parser s) where
 
   char c =
     Parser $ \(# input, pos, ex #) ->
-    case runIdentity $ Stream.uncons input of
+    case fromResult . runIdentity $ Stream.uncons input of
       Right (c' :> input') | c == c' ->
         (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
