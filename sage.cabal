@@ -20,7 +20,9 @@ category:            Text
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Streaming.Class, Text.Sage, Text.Sage.Indentation
+  exposed-modules:     Streaming.Class
+                     , Streaming.Text.Strict
+                     , Text.Sage, Text.Sage.Indentation
   build-depends:       base >=4.11 && <5
                      , containers >=0.6
                      , deepseq >=1.4

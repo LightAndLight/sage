@@ -14,10 +14,6 @@
 module Streaming.Class (Stream(..), toStream) where
 
 import qualified Streaming
-import Data.Functor.Of (Of ((:>)))
-import qualified Data.Text as Strict
-import Control.Monad.Identity (Identity (Identity))
-import qualified Data.Text as Text
 
 class Stream f m a s | s -> f m a where
   data Result s :: *
@@ -25,21 +21,9 @@ class Stream f m a s | s -> f m a where
   uncons :: s -> m (Result s)
 
 instance Monad m => Stream f m a (Streaming.Stream f m a) where
-  newtype Result (Streaming.Stream f m a) = ResultStream { getResult :: Either a (f (Streaming.Stream f m a)) }
+  newtype Result (Streaming.Stream f m a) = Result { getResult :: Either a (f (Streaming.Stream f m a)) }
   fromResult = getResult
-  uncons s = ResultStream <$> Streaming.inspect s
-
-instance Stream (Of Char) Identity () Strict.Text where
-  data Result Strict.Text = DoneStrictText | MoreStrictText !Char {-# unpack #-} !Strict.Text
-  
-  fromResult DoneStrictText = Left ()
-  fromResult (MoreStrictText c t) = Right (c :> t)
-  
-  uncons t =
-    Identity $
-    case Text.uncons t of
-      Nothing -> DoneStrictText
-      Just (c, t') -> MoreStrictText c t'
+  uncons s = Result <$> Streaming.inspect s
 
 toStream :: (Functor f, Monad m) => Stream f m a s => s -> Streaming.Stream f m a
 toStream = Streaming.unfold (fmap fromResult . uncons)

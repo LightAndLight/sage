@@ -38,6 +38,7 @@ import qualified Data.Either as Either
 import Streaming.Class (Stream)
 import Data.Functor.Identity (Identity)
 import Data.Functor.Of (Of)
+import Streaming.Text.Strict (StreamText(StreamText))
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -66,7 +67,7 @@ expr =
 
 {-# noinline parseLambda #-}
 parseLambda :: Text -> Either Parser.ParseError Expr
-parseLambda = Parser.parse expr
+parseLambda = Parser.parse expr . StreamText
 
 {-# noinline parseLambdaMP #-}
 parseLambdaMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Expr
@@ -77,7 +78,7 @@ parseLambdaAP :: Text -> Either String Expr
 parseLambdaAP = Attoparsec.parseOnly expr
 
 manySymbols :: Text -> Either Parser.ParseError Int
-manySymbols = Parser.parse (ps <* eof)
+manySymbols = Parser.parse (ps <* eof) . StreamText
   where
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
@@ -89,7 +90,7 @@ manySymbols = Parser.parse (ps <* eof)
       6 <$ text "ticklish"
 
 manyTextsNaive :: Text -> Either Parser.ParseError Int
-manyTextsNaive = Parser.parse (ps <* eof)
+manyTextsNaive = Parser.parse (ps <* eof) . StreamText
   where
     t :: Stream (Of Char) Identity () s => Text -> Parser.Parser s ()
     t = Text.foldr (\c rest -> char c *> rest) (pure ())
@@ -104,7 +105,7 @@ manyTextsNaive = Parser.parse (ps <* eof)
       6 <$ t "ticklish"
 
 manyTexts :: Text -> Either Parser.ParseError Int
-manyTexts = Parser.parse (ps <* eof)
+manyTexts = Parser.parse (ps <* eof) . StreamText
   where
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
@@ -142,7 +143,7 @@ manyTextsAP = Attoparsec.parse (ps <* Attoparsec.endOfInput)
       6 <$ Attoparsec.string "ticklish"
 
 commasep :: Text -> Either Parser.ParseError [Char]
-commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof)
+commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof) . StreamText
 
 commasepMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) [Char]
 commasepMP = Megaparsec.parse (Megaparsec.sepBy (Megaparsec.char 'a') (Megaparsec.char ',') <* Megaparsec.eof) ""
@@ -155,25 +156,25 @@ lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequ
 
 {-# NOINLINE sageMany #-}
 sageMany :: Text -> [Char]
-sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
+sageMany = Either.fromRight undefined . Parser.parse (many anyChar) . StreamText
 
 {-# NOINLINE sageSome #-}
 sageSome :: Text -> [Char]
-sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
+sageSome = Either.fromRight undefined . Parser.parse (some anyChar) . StreamText
 
 a1000 :: Text
 a1000 = Text.replicate 1000 "a"
 
 {-# NOINLINE sageChar #-}
 sageChar :: Text -> [Char]
-sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
+sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a') . StreamText
 
 hello1000 :: Text
 hello1000 = Text.replicate 1000 "hello"
 
 {-# NOINLINE sageString #-}
 sageString :: Text -> [Text]
-sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello")
+sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello") . StreamText
 
 main :: IO ()
 main = do
