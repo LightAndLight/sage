@@ -1,7 +1,6 @@
 {-# language DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# language OverloadedStrings #-}
-
 {-# OPTIONS_GHC
     -ddump-simpl
     -ddump-to-file
@@ -11,6 +10,7 @@
     -dsuppress-uniques
     -dsuppress-module-prefixes
 #-}
+
 module Main where
 
 import Control.Applicative ((<|>), some, many)

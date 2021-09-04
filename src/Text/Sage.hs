@@ -202,6 +202,7 @@ instance Monad (Parser s) where
 
 instance MonadPlus (Parser s)
 
+{-# inlineable string #-}
 string :: forall s. Stream (Of Char) Identity () s => Text -> Parser s Text
 string t =
   Parser $ \state@(# input, pos, _ #) -> go state t input pos
