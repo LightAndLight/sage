@@ -1,41 +1,45 @@
-{-# language BangPatterns #-}
-{-# language UnboxedSums, UnboxedTuples #-}
-{-# language GeneralizedNewtypeDeriving #-}
-{-# language MagicHash #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UnboxedSums #-}
+{-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Text.Sage.Indentation
-  ( Indented(..)
-  , runIndented
-  , Amount(..)
-  , indented
-  , current
-  , indent
-  )
-where
+
+module Text.Sage.Indentation (
+  Indented (..),
+  runIndented,
+  Amount (..),
+  indented,
+  current,
+  indent,
+) where
 
 import Control.Applicative (Alternative, empty, many)
 import Control.Monad (guard)
 import Control.Monad.State (StateT, evalStateT, get, modify, put)
 import Control.Monad.Trans.Class (lift)
-import Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.List.NonEmpty as NonEmpty
-import Text.Sage (Parser, Label(..), count, label)
-import Text.Parser.Combinators ((<?>), Parsing, try)
-import Text.Parser.Char (CharParsing, char)
-import Text.Parser.LookAhead (lookAhead)
-import Streaming.Class (Stream)
 import Data.Functor.Identity (Identity)
 import Data.Functor.Of (Of)
+import Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NonEmpty
+import Streaming.Class (Stream)
+import Text.Parser.Char (CharParsing, char)
+import Text.Parser.Combinators (Parsing, try, (<?>))
+import Text.Parser.LookAhead (lookAhead)
+import Text.Sage (Label (..), Parser, count, label)
 
-newtype Indented s a
-  = Indented { unIndented :: StateT (NonEmpty Int) (Parser s) a }
+newtype Indented s a = Indented {unIndented :: StateT (NonEmpty Int) (Parser s) a}
   deriving
-    ( Functor, Applicative, Alternative, Monad
+    ( Functor
+    , Applicative
+    , Alternative
+    , Monad
     )
 
 deriving instance Stream (Of Char) Identity () s => Parsing (Indented s)
+
 deriving instance Stream (Of Char) Identity () s => CharParsing (Indented s)
 
 runIndented :: Int -> Indented s a -> Parser s a
@@ -44,11 +48,12 @@ runIndented lvl (Indented m) =
 
 indentation :: Stream (Of Char) Identity () s => Int -> Parser s ()
 indentation expected =
-  try (do
-    actual <- length <$> many (char ' ')
-    guard $ actual == expected
-  ) <?>
-  ("indent ==" <> show expected)
+  try
+    ( do
+        actual <- length <$> many (char ' ')
+        guard $ actual == expected
+    )
+    <?> ("indent ==" <> show expected)
 
 currentLevel :: Indented s Int
 currentLevel =
@@ -71,17 +76,20 @@ indented amt p =
       relative n *> p <* dedent
     Any -> do
       lvl <- currentLevel
-      (Indented $
-       lift (lookAhead $ parseIndent lvl) >>=
-       modify . NonEmpty.cons) *> p <* dedent
+      ( Indented $
+          lift (lookAhead $ parseIndent lvl)
+            >>= modify . NonEmpty.cons
+        )
+        *> p
+        <* dedent
 
 parseIndent :: Stream (Of Char) Identity () s => Int -> Parser s Int
 parseIndent lvl =
   label
     (String $ "indent >" <> show lvl)
-    (do
-      n <- count $ char ' '
-      n <$ guard (n > lvl)
+    ( do
+        n <- count $ char ' '
+        n <$ guard (n > lvl)
     )
 
 indent :: Stream (Of Char) Identity () s => Indented s Int
@@ -89,12 +97,11 @@ indent = currentLevel >>= Indented . lift . parseIndent
 
 showDedentLevels :: NonEmpty Int -> String
 showDedentLevels lvls =
-  "dedent " <>
-  (let
-     x :| xs = NonEmpty.sort lvls
-   in
-     "==" <> show x <>
-     foldMap ((", ==" <>) . show) xs)
+  "dedent "
+    <> ( let x :| xs = NonEmpty.sort lvls
+          in "==" <> show x
+              <> foldMap ((", ==" <>) . show) xs
+       )
 
 dedent :: Stream (Of Char) Identity () s => Indented s ()
 dedent =
@@ -105,15 +112,15 @@ dedent =
       previousLvl : rest -> do
         mRes <-
           lift $
-          label
-            (String $ showDedentLevels (previousLvl :| rest))
-            (do
-              n <- lookAhead $ count (char ' ')
-              pure $
-                if n `elem` levels
-                then Just (previousLvl :| rest)
-                else Nothing
-            )
+            label
+              (String $ showDedentLevels (previousLvl :| rest))
+              ( do
+                  n <- lookAhead $ count (char ' ')
+                  pure $
+                    if n `elem` levels
+                      then Just (previousLvl :| rest)
+                      else Nothing
+              )
         maybe empty put mRes
 
 current :: Stream (Of Char) Identity () s => Indented s ()

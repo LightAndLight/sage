@@ -1,11 +1,12 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-module Streaming.Class (module Data.Functor.Of, Stream(..), toStream) where
 
-import qualified Streaming
+module Streaming.Class (module Data.Functor.Of, Stream (..), toStream) where
+
 import Data.Functor.Of
+import qualified Streaming
 
 class Stream f m a s | s -> f m a where
   data Result s :: *
@@ -13,7 +14,7 @@ class Stream f m a s | s -> f m a where
   uncons :: s -> m (Result s)
 
 instance Monad m => Stream f m a (Streaming.Stream f m a) where
-  newtype Result (Streaming.Stream f m a) = Result { getResult :: Either a (f (Streaming.Stream f m a)) }
+  newtype Result (Streaming.Stream f m a) = Result {getResult :: Either a (f (Streaming.Stream f m a))}
   fromResult = getResult
   uncons s = Result <$> Streaming.inspect s
 

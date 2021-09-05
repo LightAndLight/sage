@@ -2,27 +2,26 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC
-    -ddump-simpl
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -ddump-simpl
     -ddump-to-file
     -dsuppress-idinfo
     -dsuppress-coercions
     -dsuppress-type-applications
     -dsuppress-uniques
-    -dsuppress-module-prefixes
-#-}
-module Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8(..)) where
+    -dsuppress-module-prefixes #-}
+
+module Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8 (..)) where
 
 import Data.ByteString (ByteString)
-import Streaming.Class (Stream(..))
+import qualified Data.ByteString as ByteString
+import Data.Functor.Identity (Identity (Identity))
 import Data.Functor.Of (Of ((:>)))
 import Data.Word (Word8)
-import Data.Functor.Identity (Identity (Identity))
-import qualified Data.ByteString as ByteString
-import GHC.Word (Word8(W8#))
-import GHC.Exts (Char(C#), chr#, word2Int#, uncheckedIShiftL#, (+#), (-#))
+import GHC.Exts (Char (C#), chr#, uncheckedIShiftL#, word2Int#, (+#), (-#))
+import GHC.Word (Word8 (W8#))
+import Streaming.Class (Stream (..))
 
 unsafeChr8 :: Word8 -> Char
 unsafeChr8 (W8# w#) = C# (chr# (word2Int# w#))
@@ -87,21 +86,21 @@ chr4 (W8# x1#) bs =
 
 decodeChar :: Word8 -> ByteString -> (Char, ByteString)
 decodeChar n1 bs
-    | n1 < 0xC0 = chr1 n1 bs
-    | n1 < 0xE0 = chr2 n1 bs
-    | n1 < 0xF0 = chr3 n1 bs
-    | otherwise = chr4 n1 bs
+  | n1 < 0xC0 = chr1 n1 bs
+  | n1 < 0xE0 = chr2 n1 bs
+  | n1 < 0xF0 = chr3 n1 bs
+  | otherwise = chr4 n1 bs
 {-# INLINE decodeChar #-}
 
 newtype StreamByteStringUtf8 = StreamByteStringUtf8 ByteString
 
-instance Stream (Of Char) Identity () StreamByteStringUtf8 where  
-  data Result StreamByteStringUtf8 = Done | More !Char {-# unpack #-} !ByteString
+instance Stream (Of Char) Identity () StreamByteStringUtf8 where
+  data Result StreamByteStringUtf8 = Done | More !Char {-# UNPACK #-} !ByteString
   fromResult Done = Left ()
   fromResult (More c b) = Right (c :> StreamByteStringUtf8 b)
-  
+
   uncons (StreamByteStringUtf8 b) =
     Identity $
-    case ByteString.uncons b of
-      Nothing -> Done
-      Just (w, b') | (c, b'') <- decodeChar w b' -> More c b''
+      case ByteString.uncons b of
+        Nothing -> Done
+        Just (w, b') | (c, b'') <- decodeChar w b' -> More c b''
