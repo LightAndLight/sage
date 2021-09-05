@@ -20,9 +20,9 @@ category:            Text
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Streaming.Class
-                     , Streaming.ByteString.Strict.Utf8
-                     , Streaming.Text.Strict
+  exposed-modules:     Streaming.Chars
+                     , Streaming.Chars.ByteString.Utf8
+                     , Streaming.Chars.Text
                      , Text.Sage
                      , Text.Sage.Indentation
   build-depends:       base >=4.11 && <5

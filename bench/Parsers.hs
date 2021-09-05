@@ -9,13 +9,11 @@ import Control.DeepSeq (NFData)
 import Criterion.Main (Benchmark, bench, bgroup, nf)
 import qualified Data.Attoparsec.Text as Attoparsec
 import Data.Char (isLower)
-import Data.Functor.Identity (Identity)
-import Data.Functor.Of (Of)
 import Data.Text (Text, unpack)
 import Data.Void (Void)
 import GHC.Generics (Generic)
-import Streaming.Class (Stream)
-import Streaming.Text.Strict (StreamText (StreamText))
+import Streaming.Chars (Chars)
+import Streaming.Chars.Text (StreamText (StreamText))
 import qualified Text.Megaparsec as Megaparsec
 import Text.Megaparsec.Parsers (ParsecT (unParsecT))
 import Text.Parser.Char (CharParsing, char, satisfy, string)
@@ -43,7 +41,7 @@ expr =
         <* spaces
     app = foldl App <$> atom <*> many atom
 
-exprSage :: Stream (Of Char) Identity () s => Sage.Parser s Expr
+exprSage :: Chars s => Sage.Parser s Expr
 exprSage = expr
 
 exprMP :: Megaparsec.Parsec Void Text Expr

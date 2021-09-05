@@ -20,11 +20,9 @@ import Control.Applicative (Alternative, empty, many)
 import Control.Monad (guard)
 import Control.Monad.State (StateT, evalStateT, get, modify, put)
 import Control.Monad.Trans.Class (lift)
-import Data.Functor.Identity (Identity)
-import Data.Functor.Of (Of)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Streaming.Class (Stream)
+import Streaming.Chars (Chars)
 import Text.Parser.Char (CharParsing, char)
 import Text.Parser.Combinators (Parsing, try, (<?>))
 import Text.Parser.LookAhead (lookAhead)
@@ -38,15 +36,15 @@ newtype Indented s a = Indented {unIndented :: StateT (NonEmpty Int) (Parser s) 
     , Monad
     )
 
-deriving instance Stream (Of Char) Identity () s => Parsing (Indented s)
+deriving instance Chars s => Parsing (Indented s)
 
-deriving instance Stream (Of Char) Identity () s => CharParsing (Indented s)
+deriving instance Chars s => CharParsing (Indented s)
 
 runIndented :: Int -> Indented s a -> Parser s a
 runIndented lvl (Indented m) =
   evalStateT m (pure lvl)
 
-indentation :: Stream (Of Char) Identity () s => Int -> Parser s ()
+indentation :: Chars s => Int -> Parser s ()
 indentation expected =
   try
     ( do
@@ -69,7 +67,7 @@ relative lvl' = do
 
 data Amount = Add Int | Any
 
-indented :: Stream (Of Char) Identity () s => Amount -> Indented s a -> Indented s a
+indented :: Chars s => Amount -> Indented s a -> Indented s a
 indented amt p =
   case amt of
     Add n ->
@@ -83,7 +81,7 @@ indented amt p =
         *> p
         <* dedent
 
-parseIndent :: Stream (Of Char) Identity () s => Int -> Parser s Int
+parseIndent :: Chars s => Int -> Parser s Int
 parseIndent lvl =
   label
     (String $ "indent >" <> show lvl)
@@ -92,7 +90,7 @@ parseIndent lvl =
         n <$ guard (n > lvl)
     )
 
-indent :: Stream (Of Char) Identity () s => Indented s Int
+indent :: Chars s => Indented s Int
 indent = currentLevel >>= Indented . lift . parseIndent
 
 showDedentLevels :: NonEmpty Int -> String
@@ -103,7 +101,7 @@ showDedentLevels lvls =
               <> foldMap ((", ==" <>) . show) xs
        )
 
-dedent :: Stream (Of Char) Identity () s => Indented s ()
+dedent :: Chars s => Indented s ()
 dedent =
   Indented $ do
     _currentLvl :| levels <- get
@@ -123,7 +121,7 @@ dedent =
               )
         maybe empty put mRes
 
-current :: Stream (Of Char) Identity () s => Indented s ()
+current :: Chars s => Indented s ()
 current = do
   lvl <- currentLevel
   Indented . lift $ indentation lvl

@@ -19,8 +19,6 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.Char (isLower)
 import qualified Data.Either as Either
-import Data.Functor.Identity (Identity)
-import Data.Functor.Of (Of)
 import Data.String (IsString)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -29,9 +27,9 @@ import qualified Data.Text.IO as Text (readFile)
 import Data.Void (Void)
 import GHC.Generics (Generic)
 import Parsers (parsersBench)
-import Streaming.ByteString.Strict.Utf8 (StreamUtf8 (StreamUtf8))
-import Streaming.Class (Stream)
-import Streaming.Text.Strict (StreamText (StreamText))
+import Streaming.Chars (Chars)
+import Streaming.Chars.ByteString.Utf8 (StreamUtf8 (StreamUtf8))
+import Streaming.Chars.Text (StreamText (StreamText))
 import System.Environment (getArgs, withArgs)
 import qualified System.IO.MMap as Mmap
 import qualified Text.Megaparsec as Megaparsec
@@ -69,7 +67,7 @@ expr =
     app = foldl App <$> atom <*> many atom
 
 {-# INLINEABLE parseLambda #-}
-parseLambda :: Stream (Of Char) Identity () s => s -> Either Parser.ParseError Expr
+parseLambda :: Chars s => s -> Either Parser.ParseError Expr
 parseLambda = Parser.parse expr
 
 {-# NOINLINE parseLambdaText #-}
@@ -103,7 +101,7 @@ manySymbols = Parser.parse (ps <* eof) . StreamText
 manyTextsNaive :: Text -> Either Parser.ParseError Int
 manyTextsNaive = Parser.parse (ps <* eof) . StreamText
   where
-    t :: Stream (Of Char) Identity () s => Text -> Parser.Parser s ()
+    t :: Chars s => Text -> Parser.Parser s ()
     t = Text.foldr (\c rest -> char c *> rest) (pure ())
 
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
@@ -166,7 +164,7 @@ lipsum :: IsString s => s
 lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequat sodales elit eget egestas. Suspendisse eget augue accumsan velit accumsan fringilla. Nam dolor ex, pulvinar id elit quis, eleifend porta quam. Vivamus tristique fringilla enim quis cursus. Sed ex eros, volutpat quis iaculis ut, mollis quis odio. Sed id turpis quis libero varius dictum. Aliquam ut massa non diam aliquam feugiat. Vestibulum condimentum mauris vel orci aliquet iaculis. Maecenas nec est dictum, sodales lorem eu, venenatis elit. Vestibulum eu eros ac ipsum maximus bibendum eu luctus magna. Nulla vitae lorem interdum, efficitur nibh non, auctor diam. In maximus quis arcu dignissim euismod. Sed maximus et augue quis fringilla. Donec sit amet felis nec nisi finibus sagittis eget ac est. Nam at sollicitudin sapien. Cras commodo felis ac sodales eleifend. Integer vitae iaculis risus. Fusce aliquam vel leo et tristique. Sed fringilla, metus non consequat pellentesque, eros ligula vehicula ante, eget volutpat."
 
 {-# INLINEABLE sageMany #-}
-sageMany :: Stream (Of Char) Identity () s => s -> [Char]
+sageMany :: Chars s => s -> [Char]
 sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
 
 {-# NOINLINE sageManyText #-}
@@ -178,7 +176,7 @@ sageManyBS :: ByteString -> [Char]
 sageManyBS = sageMany . StreamUtf8
 
 {-# INLINEABLE sageSome #-}
-sageSome :: Stream (Of Char) Identity () s => s -> [Char]
+sageSome :: Chars s => s -> [Char]
 sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
 
 {-# NOINLINE sageSomeText #-}
@@ -196,7 +194,7 @@ a1000BS :: ByteString
 a1000BS = Text.Encoding.encodeUtf8 a1000Text
 
 {-# INLINEABLE sageChar #-}
-sageChar :: Stream (Of Char) Identity () s => s -> [Char]
+sageChar :: Chars s => s -> [Char]
 sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
 
 {-# NOINLINE sageCharText #-}
@@ -214,7 +212,7 @@ hello1000BS :: ByteString
 hello1000BS = Text.Encoding.encodeUtf8 hello1000Text
 
 {-# INLINEABLE sageString #-}
-sageString :: Stream (Of Char) Identity () s => s -> [Text]
+sageString :: Chars s => s -> [Text]
 sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello")
 
 {-# NOINLINE sageStringText #-}

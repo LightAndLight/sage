@@ -38,16 +38,14 @@ module Text.Sage (
 import Control.Applicative (Alternative (..))
 import Control.DeepSeq (NFData)
 import Control.Monad (MonadPlus (..))
-import Data.Functor.Identity (Identity (runIdentity))
-import Data.Functor.Of (Of ((:>)))
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Exts (Int (..), Int#, orI#, (+#))
 import GHC.Generics (Generic)
-import Streaming.Class (Stream, fromResult)
-import qualified Streaming.Class as Stream
+import Streaming.Chars (Chars, fromResult)
+import qualified Streaming.Chars as Chars
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
 import Text.Parser.Combinators (Parsing)
@@ -218,7 +216,7 @@ instance Monad (Parser s) where
 instance MonadPlus (Parser s)
 
 {-# INLINEABLE string #-}
-string :: forall s. Stream (Of Char) Identity () s => Text -> Parser s Text
+string :: forall s. Chars s => Text -> Parser s Text
 string t =
   Parser $ \state@(# input, pos, _ #) -> stringGo state t t input pos
   where
@@ -241,8 +239,8 @@ string t =
             , Just# t'
           #)
         Just (!expectedC, !expect') ->
-          case fromResult . runIdentity $ Stream.uncons input' of
-            Right (actualC :> input'')
+          case fromResult $ Chars.uncons input' of
+            Just (actualC, input'')
               | expectedC == actualC ->
                 stringGo state t' expect' input'' (pos' +# 1#)
             _ ->
@@ -298,7 +296,7 @@ label l (Parser p) =
       (# consumed, input', pos', _, res #) ->
         (# consumed, input', pos', Set.insert l ex, res #)
 
-instance Stream (Of Char) Identity () s => Parsing (Parser s) where
+instance Chars s => Parsing (Parser s) where
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
@@ -351,16 +349,16 @@ instance Stream (Of Char) Identity () s => Parsing (Parser s) where
 
   eof =
     Parser $ \(# input, pos, ex #) ->
-      case fromResult . runIdentity $ Stream.uncons input of
-        Left () -> (# 0#, input, pos, ex, Just# () #)
-        Right{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
+      case fromResult $ Chars.uncons input of
+        Nothing -> (# 0#, input, pos, ex, Just# () #)
+        Just{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
 
-instance Stream (Of Char) Identity () s => CharParsing (Parser s) where
+instance Chars s => CharParsing (Parser s) where
   {-# INLINE satisfy #-}
   satisfy f =
     Parser $ \(# input, pos, ex #) ->
-      case fromResult . runIdentity $ Stream.uncons input of
-        Right (c :> input')
+      case fromResult $ Chars.uncons input of
+        Just (c, input')
           | f c ->
             (# 1#, input', pos +# 1#, mempty, Just# c #)
         _ ->
@@ -368,8 +366,8 @@ instance Stream (Of Char) Identity () s => CharParsing (Parser s) where
 
   char c =
     Parser $ \(# input, pos, ex #) ->
-      case fromResult . runIdentity $ Stream.uncons input of
-        Right (c' :> input')
+      case fromResult $ Chars.uncons input of
+        Just (c', input')
           | c == c' ->
             (# 1#, input', pos +# 1#, mempty, Just# c #)
         _ ->
@@ -377,9 +375,9 @@ instance Stream (Of Char) Identity () s => CharParsing (Parser s) where
 
   text = Text.Sage.string
 
-instance Stream (Of Char) Identity () s => TokenParsing (Parser s)
+instance Chars s => TokenParsing (Parser s)
 
-instance Stream (Of Char) Identity () s => LookAheadParsing (Parser s) where
+instance Chars s => LookAheadParsing (Parser s) where
   lookAhead (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of

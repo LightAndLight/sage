@@ -6,16 +6,15 @@ module Test.Parser (parserTests) where
 
 import Control.Applicative (empty, (<|>))
 import Data.Char (isDigit)
-import Data.Functor.Identity (Identity)
 import qualified Data.Set as Set
-import Streaming.Class (Of, Stream)
-import Streaming.Text.Strict (StreamText)
+import Streaming.Chars (Chars)
+import Streaming.Chars.Text (StreamText)
 import Test.Hspec
 import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Sage
 
-decimal :: Stream (Of Char) Identity () s => Parser s Int
+decimal :: Chars s => Parser s Int
 decimal = read <$> some (satisfy isDigit <?> "digit")
 
 parserTests :: Spec

@@ -4,15 +4,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -ddump-simpl
-    -ddump-to-file
-    -dsuppress-idinfo
-    -dsuppress-coercions
-    -dsuppress-type-applications
-    -dsuppress-uniques
-    -dsuppress-module-prefixes #-}
 
-module Streaming.ByteString.Strict.Utf8 (StreamUtf8 (..)) where
+module Streaming.Chars.ByteString.Utf8 (StreamUtf8 (..)) where
 
 {-
 
@@ -24,12 +17,10 @@ Some code in this module has been copied from the `text` library's `Data.Text.In
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
-import Data.Functor.Identity (Identity (Identity))
-import Data.Functor.Of (Of ((:>)))
 import Data.Word (Word8)
 import GHC.Exts (Char (C#), chr#, uncheckedIShiftL#, word2Int#, (+#), (-#))
 import GHC.Word (Word8 (W8#))
-import Streaming.Class (Stream (..))
+import Streaming.Chars (Chars (..))
 
 unsafeChr8 :: Word8 -> Char
 unsafeChr8 (W8# w#) = C# (chr# (word2Int# w#))
@@ -102,13 +93,12 @@ decodeChar n1 bs
 
 newtype StreamUtf8 = StreamUtf8 ByteString
 
-instance Stream (Of Char) Identity () StreamUtf8 where
+instance Chars StreamUtf8 where
   data Result StreamUtf8 = Done | More !Char {-# UNPACK #-} !ByteString
-  fromResult Done = Left ()
-  fromResult (More c b) = Right (c :> StreamUtf8 b)
+  fromResult Done = Nothing
+  fromResult (More c b) = Just (c, StreamUtf8 b)
 
   uncons (StreamUtf8 b) =
-    Identity $
-      case ByteString.uncons b of
-        Nothing -> Done
-        Just (w, b') | (c, b'') <- decodeChar w b' -> More c b''
+    case ByteString.uncons b of
+      Nothing -> Done
+      Just (w, b') | (c, b'') <- decodeChar w b' -> More c b''

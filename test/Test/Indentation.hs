@@ -5,11 +5,10 @@
 module Test.Indentation (indentationTests) where
 
 import Control.Applicative (many, optional, some, (<|>))
-import Data.Functor.Identity (Identity)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Streaming.Class (Of, Stream)
-import Streaming.Text.Strict (StreamText (StreamText))
+import Streaming.Chars (Chars)
+import Streaming.Chars.Text (StreamText (StreamText))
 import Test.Hspec (Spec, describe, it, shouldBe)
 import Text.Parser.Char (char, letter, space, string)
 import Text.Sage (Label (..), ParseError (..), parse)
@@ -20,7 +19,7 @@ data Def
   | Print Text
   deriving (Eq, Show)
 
-pythonish :: Stream (Of Char) Identity () s => Indented s Def
+pythonish :: Chars s => Indented s Def
 pythonish =
   def
     <|> print'
