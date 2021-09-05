@@ -5,8 +5,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Test.Hspec
 import Test.Hspec.Hedgehog (hedgehog, modifyMaxSuccess)
-
-import Text.Sage (Span(..), spanContains)
+import Text.Sage (Span (..), spanContains)
 
 genSpan :: Gen Span
 genSpan = do

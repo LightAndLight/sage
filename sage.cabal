@@ -20,12 +20,18 @@ category:            Text
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Text.Sage, Text.Sage.Indentation
+  exposed-modules:     Streaming.Chars
+                     , Streaming.Chars.ByteString.Utf8
+                     , Streaming.Chars.Text
+                     , Text.Sage
+                     , Text.Sage.Indentation
   build-depends:       base >=4.11 && <5
+                     , bytestring
                      , containers >=0.6
                      , deepseq >=1.4
                      , mtl
                      , parsers
+                     , streaming
                      , text >=1.2
                      , transformers
   hs-source-dirs:      src
@@ -39,11 +45,14 @@ benchmark sage-bench
   build-depends:       base >=4.12 && <5
                      , sage
                      , attoparsec
+                     , bytestring
                      , criterion
                      , deepseq >=1.4
                      , megaparsec
+                     , mmap
                      , parsers
                      , parsers-megaparsec
+                     , streaming
                      , text >=1.2
                      , weigh
   hs-source-dirs:      bench
