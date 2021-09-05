@@ -50,6 +50,7 @@ benchmark sage-bench
                      , criterion
                      , deepseq >=1.4
                      , megaparsec
+                     , mmap
                      , parsers
                      , parsers-megaparsec
                      , streaming

@@ -44,6 +44,7 @@ import Data.ByteString (ByteString)
 import Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8(StreamByteStringUtf8))
 import qualified Data.Text.Encoding as Text.Encoding
 import qualified Data.ByteString as ByteString
+import qualified System.IO.MMap as Mmap
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -267,6 +268,7 @@ main = do
           wgroup "read file and parse" $ do
             io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_5.lam"
             io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_5.lam"
+            io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_5.lam"
         wgroup "10KB file" $ do
           wgroup "just parsing" $ do
             func' "megaparsec" parseLambdaMP file_15
@@ -277,6 +279,7 @@ main = do
           wgroup "read file and parse" $ do
             io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
             io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
+            io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_15.lam"
     "time" ->
       withArgs args . defaultMain $
         [ bgroup "sage"
@@ -333,6 +336,24 @@ main = do
               ]
             , bench "megaparsec" $ nf parseLambdaMP file
             , bench "attoparsec" $ nf parseLambdaAP file
+            ]
+        , env ((,) <$> Text.readFile "bench/res/depth_15.lam" <*> ByteString.readFile "bench/res/depth_15.lam") $ \ ~(file, fileBS) ->
+            bgroup "10KB file"
+            [ bgroup "just parsing"
+              [ bgroup "sage"
+                [ bench "Text" $ nf parseLambdaText file
+                , bench "UTF-8 ByteString" $ nf parseLambdaBS fileBS
+                ]
+              , bench "megaparsec" $ nf parseLambdaMP file
+              , bench "attoparsec" $ nf parseLambdaAP file
+              ]
+            , bgroup "read file and parse"
+              [ bgroup "sage"
+                [ bench "Text" $ nfAppIO (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
+                , bench "UTF-8 ByteString" $ nfAppIO (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
+                , bench "UTF-8 ByteString mmapped" $ nfAppIO (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_15.lam"
+                ]
+              ]
             ]
         , let
             input = "a,a,a,a,a,a,a,a"
