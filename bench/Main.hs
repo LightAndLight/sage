@@ -43,6 +43,7 @@ import Data.String (IsString)
 import Data.ByteString (ByteString)
 import Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8(StreamByteStringUtf8))
 import qualified Data.Text.Encoding as Text.Encoding
+import qualified Data.ByteString as ByteString
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -69,9 +70,17 @@ expr =
 
     app = foldl App <$> atom <*> many atom
 
-{-# noinline parseLambda #-}
-parseLambda :: Text -> Either Parser.ParseError Expr
-parseLambda = Parser.parse expr . StreamText
+{-# inlineable parseLambda #-}
+parseLambda :: Stream (Of Char) Identity () s => s -> Either Parser.ParseError Expr
+parseLambda = Parser.parse expr
+
+{-# noinline parseLambdaText #-}
+parseLambdaText :: Text -> Either Parser.ParseError Expr
+parseLambdaText = Parser.parse expr . StreamText
+
+{-# noinline parseLambdaBS #-}
+parseLambdaBS :: ByteString -> Either Parser.ParseError Expr
+parseLambdaBS = Parser.parse expr . StreamByteStringUtf8
 
 {-# noinline parseLambdaMP #-}
 parseLambdaMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Expr
@@ -220,15 +229,13 @@ sageStringBS = sageString . StreamByteStringUtf8
 
 main :: IO ()
 main = do
-  print $ parseLambda "x"
-  print $ parseLambda "x y"
-  print $ parseLambda "\\x -> y"
-  print $ parseLambda "x (\\y -> z)"
-  print . parseLambda =<< Text.readFile "bench/res/depth_5.lam"
   benchtype:args <- getArgs
   case benchtype of
     "memory" -> do
       file_5 <- Text.readFile "bench/res/depth_5.lam"
+      file_5BS <- ByteString.readFile "bench/res/depth_5.lam"
+      file_15 <- Text.readFile "bench/res/depth_15.lam"
+      file_15BS <- ByteString.readFile "bench/res/depth_15.lam"
       mainWith $ do
         wgroup "sage" $ do
           wgroup "Text" $do
@@ -241,19 +248,35 @@ main = do
             func' "some" sageSomeBS lipsum
             func' "char" sageCharBS a1000BS
             func' "string" sageStringBS hello1000BS
-        func "sage x (\\y -> z)" parseLambda "x (\\y -> z)"
+        func "sage x (\\y -> z)" parseLambdaText "x (\\y -> z)"
         func "megaparsec x (\\y -> z)" parseLambdaMP "x (\\y -> z)"
         func "attoparsec x (\\y -> z)" parseLambdaAP "x (\\y -> z)"
-        func "sage x (\\y -> a b c d e)" parseLambda "x (\\y -> a b c d e)"
+        func "sage x (\\y -> a b c d e)" parseLambdaText "x (\\y -> a b c d e)"
         func "megaparsec x (\\y -> a b c d e)" parseLambdaMP "x (\\y -> a b c d e)"
         func "attoparsec x (\\y -> a b c d e)" parseLambdaAP "x (\\y -> a b c d e)"
-        func "sage x (\\y -> a b c d ~)" parseLambda "x (\\y -> a b c d ~)"
+        func "sage x (\\y -> a b c d ~)" parseLambdaText "x (\\y -> a b c d ~)"
         func "megaparsec x (\\y -> a b c d ~)" parseLambdaMP "x (\\y -> a b c d ~)"
         func "attoparsec x (\\y -> a b c d ~)" parseLambdaAP "x (\\y -> a b c d ~)"
         wgroup "32B file" $ do
-          func' "sage" parseLambda file_5
-          func' "megaparsec" parseLambdaMP file_5
-          func' "attoparsec" parseLambdaAP file_5
+          wgroup "just parsing" $ do
+            func' "megaparsec" parseLambdaMP file_5
+            func' "attoparsec" parseLambdaAP file_5
+            wgroup "sage" $ do
+                func' "Text" parseLambdaText file_5
+                func' "UTF-8 ByteString" parseLambdaBS file_5BS
+          wgroup "read file and parse" $ do
+            io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_5.lam"
+            io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_5.lam"
+        wgroup "10KB file" $ do
+          wgroup "just parsing" $ do
+            func' "megaparsec" parseLambdaMP file_15
+            func' "attoparsec" parseLambdaAP file_15
+            wgroup "sage" $ do
+                func' "Text" parseLambdaText file_15
+                func' "UTF-8 ByteString" parseLambdaBS file_15BS
+          wgroup "read file and parse" $ do
+            io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
+            io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
     "time" ->
       withArgs args . defaultMain $
         [ bgroup "sage"
@@ -287,24 +310,27 @@ main = do
               , bench "attoparsec texts good" $ nf (\input -> let output@Attoparsec.Partial{} = manyTextsAP input in output) manyGoodInput
               , bench "attoparsec texts bad" $ nf (\input -> let output@Attoparsec.Fail{} = manyTextsAP input in output) manyBadInput
               ]
-        , bench "sage x (\\y -> z)" $ nf parseLambda "x (\\y -> z)"
+        , bench "sage x (\\y -> z)" $ nf parseLambdaText "x (\\y -> z)"
         , bench "megaparsec x (\\y -> z)" $ nf parseLambdaMP "x (\\y -> z)"
         , bench "attoparsec x (\\y -> z)" $ nf parseLambdaAP "x (\\y -> z)"
-        , bench "sage x (\\y -> a b c d e)" $ nf parseLambda "x (\\y -> a b c d e)"
+        , bench "sage x (\\y -> a b c d e)" $ nf parseLambdaText "x (\\y -> a b c d e)"
         , bench "megaparsec x (\\y -> a b c d e)" $ nf parseLambdaMP "x (\\y -> a b c d e)"
         , bench "attoparsec x (\\y -> a b c d e)" $ nf parseLambdaAP "x (\\y -> a b c d e)"
-        , bench "sage x (\\y -> a b c d ~)" $ nf parseLambda "x (\\y -> a b c d ~)"
+        , bench "sage x (\\y -> a b c d ~)" $ nf parseLambdaText "x (\\y -> a b c d ~)"
         , bench "megaparsec x (\\y -> a b c d ~)" $ nf parseLambdaMP "x (\\y -> a b c d ~)"
         , bench "attoparsec x (\\y -> a b c d ~)" $ nf parseLambdaAP "x (\\y -> a b c d ~)"
         , let input = "\\x -> \\y -> x (\\z -> z y) y" in
           bgroup "\\x -> \\y -> x (\\z -> z y) y"
-          [ bench "sage" $ nf parseLambda input
+          [ bench "sage" $ nf parseLambdaText input
           , bench "megaparsec" $ nf parseLambdaMP input
           , bench "attoparsec" $ nf (\i -> case parseLambdaAP i of Right x -> x; Left e -> error e) input
           ]
-        , env (Text.readFile "bench/res/depth_5.lam") $ \file ->
+        , env ((,) <$> Text.readFile "bench/res/depth_5.lam" <*> ByteString.readFile "bench/res/depth_5.lam") $ \ ~(file, fileBS) ->
             bgroup "32B file"
-            [ bench "sage" $ nf parseLambda file
+            [ bgroup "sage"
+              [ bench "Text" $ nf parseLambdaText file
+              , bench "UTF-8 ByteString" $ nf parseLambdaBS fileBS
+              ]
             , bench "megaparsec" $ nf parseLambdaMP file
             , bench "attoparsec" $ nf parseLambdaAP file
             ]
