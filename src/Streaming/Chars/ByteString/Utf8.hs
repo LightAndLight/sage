@@ -28,6 +28,7 @@ unsafeChr8 (W8# w#) = C# (chr# (word2Int# w#))
 
 chr1 :: Word8 -> ByteString -> (Char, ByteString)
 chr1 n1 bs = (unsafeChr8 n1, bs)
+{-# INLINE chr1 #-}
 
 utf8Error :: a
 utf8Error = error "utf8 encoding error"
@@ -42,7 +43,7 @@ chr2 (W8# x1#) bs =
         !y2# = word2Int# x2#
         !z1# = uncheckedIShiftL# (y1# -# 0xC0#) 6#
         !z2# = y2# -# 0x80#
-{-# INLINE chr2 #-}
+{-# INLINEABLE chr2 #-}
 
 chr3 :: Word8 -> ByteString -> (Char, ByteString)
 chr3 (W8# x1#) bs =
@@ -59,7 +60,7 @@ chr3 (W8# x1#) bs =
             !z1# = uncheckedIShiftL# (y1# -# 0xE0#) 12#
             !z2# = uncheckedIShiftL# (y2# -# 0x80#) 6#
             !z3# = y3# -# 0x80#
-{-# INLINE chr3 #-}
+{-# INLINEABLE chr3 #-}
 
 chr4 :: Word8 -> ByteString -> (Char, ByteString)
 chr4 (W8# x1#) bs =
@@ -81,7 +82,7 @@ chr4 (W8# x1#) bs =
                 !z2# = uncheckedIShiftL# (y2# -# 0x80#) 12#
                 !z3# = uncheckedIShiftL# (y3# -# 0x80#) 6#
                 !z4# = y4# -# 0x80#
-{-# INLINE chr4 #-}
+{-# INLINEABLE chr4 #-}
 
 decodeChar :: Word8 -> ByteString -> (Char, ByteString)
 decodeChar n1 bs
@@ -89,7 +90,7 @@ decodeChar n1 bs
   | n1 < 0xE0 = chr2 n1 bs
   | n1 < 0xF0 = chr3 n1 bs
   | otherwise = chr4 n1 bs
-{-# INLINE decodeChar #-}
+{-# INLINEABLE decodeChar #-}
 
 newtype StreamUtf8 = StreamUtf8 ByteString
 
