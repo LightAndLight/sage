@@ -21,7 +21,6 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     Streaming.Class
-                     , Streaming.ByteString.Strict
                      , Streaming.ByteString.Strict.Utf8
                      , Streaming.Text.Strict
                      , Text.Sage

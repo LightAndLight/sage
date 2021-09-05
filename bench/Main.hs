@@ -29,7 +29,7 @@ import qualified Data.Text.IO as Text (readFile)
 import Data.Void (Void)
 import GHC.Generics (Generic)
 import Parsers (parsersBench)
-import Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8 (StreamByteStringUtf8))
+import Streaming.ByteString.Strict.Utf8 (StreamUtf8 (StreamUtf8))
 import Streaming.Class (Stream)
 import Streaming.Text.Strict (StreamText (StreamText))
 import System.Environment (getArgs, withArgs)
@@ -78,7 +78,7 @@ parseLambdaText = Parser.parse expr . StreamText
 
 {-# NOINLINE parseLambdaBS #-}
 parseLambdaBS :: ByteString -> Either Parser.ParseError Expr
-parseLambdaBS = Parser.parse expr . StreamByteStringUtf8
+parseLambdaBS = Parser.parse expr . StreamUtf8
 
 {-# NOINLINE parseLambdaMP #-}
 parseLambdaMP :: Text -> Either (Megaparsec.ParseErrorBundle Text Void) Expr
@@ -175,7 +175,7 @@ sageManyText = sageMany . StreamText
 
 {-# NOINLINE sageManyBS #-}
 sageManyBS :: ByteString -> [Char]
-sageManyBS = sageMany . StreamByteStringUtf8
+sageManyBS = sageMany . StreamUtf8
 
 {-# INLINEABLE sageSome #-}
 sageSome :: Stream (Of Char) Identity () s => s -> [Char]
@@ -187,7 +187,7 @@ sageSomeText = sageSome . StreamText
 
 {-# NOINLINE sageSomeBS #-}
 sageSomeBS :: ByteString -> [Char]
-sageSomeBS = sageSome . StreamByteStringUtf8
+sageSomeBS = sageSome . StreamUtf8
 
 a1000Text :: Text
 a1000Text = Text.replicate 1000 "a"
@@ -205,7 +205,7 @@ sageCharText = sageChar . StreamText
 
 {-# NOINLINE sageCharBS #-}
 sageCharBS :: ByteString -> [Char]
-sageCharBS = sageChar . StreamByteStringUtf8
+sageCharBS = sageChar . StreamUtf8
 
 hello1000Text :: Text
 hello1000Text = Text.replicate 1000 "hello"
@@ -223,7 +223,7 @@ sageStringText = sageString . StreamText
 
 {-# NOINLINE sageStringBS #-}
 sageStringBS :: ByteString -> [Text]
-sageStringBS = sageString . StreamByteStringUtf8
+sageStringBS = sageString . StreamUtf8
 
 main :: IO ()
 main = do

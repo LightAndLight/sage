@@ -12,7 +12,15 @@
     -dsuppress-uniques
     -dsuppress-module-prefixes #-}
 
-module Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8 (..)) where
+module Streaming.ByteString.Strict.Utf8 (StreamUtf8 (..)) where
+
+{-
+
+Some code in this module has been copied from the `text` library's `Data.Text.Internal.Unsafe.Char` module.
+
+(c) 2008, 2009 Tom Harper, (c) 2009, 2010 Bryan O'Sullivan, (c) 2009 Duncan Coutts
+
+-}
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
@@ -92,14 +100,14 @@ decodeChar n1 bs
   | otherwise = chr4 n1 bs
 {-# INLINE decodeChar #-}
 
-newtype StreamByteStringUtf8 = StreamByteStringUtf8 ByteString
+newtype StreamUtf8 = StreamUtf8 ByteString
 
-instance Stream (Of Char) Identity () StreamByteStringUtf8 where
-  data Result StreamByteStringUtf8 = Done | More !Char {-# UNPACK #-} !ByteString
+instance Stream (Of Char) Identity () StreamUtf8 where
+  data Result StreamUtf8 = Done | More !Char {-# UNPACK #-} !ByteString
   fromResult Done = Left ()
-  fromResult (More c b) = Right (c :> StreamByteStringUtf8 b)
+  fromResult (More c b) = Right (c :> StreamUtf8 b)
 
-  uncons (StreamByteStringUtf8 b) =
+  uncons (StreamUtf8 b) =
     Identity $
       case ByteString.uncons b of
         Nothing -> Done
