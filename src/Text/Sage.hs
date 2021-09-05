@@ -15,6 +15,8 @@
 module Text.Sage (
   -- * Parsing
   Parser,
+  parseText,
+  parseUtf8,
   parse,
 
   -- * Errors
@@ -38,6 +40,7 @@ module Text.Sage (
 import Control.Applicative (Alternative (..))
 import Control.DeepSeq (NFData)
 import Control.Monad (MonadPlus (..))
+import Data.ByteString (ByteString)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -46,6 +49,8 @@ import GHC.Exts (Int (..), Int#, orI#, (+#))
 import GHC.Generics (Generic)
 import Streaming.Chars (Chars, fromResult)
 import qualified Streaming.Chars as Chars
+import Streaming.Chars.ByteString.Utf8 (StreamUtf8 (StreamUtf8))
+import Streaming.Chars.Text (StreamText (StreamText))
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
 import Text.Parser.Combinators (Parsing)
@@ -89,6 +94,12 @@ newtype Parser s a = Parser
       (# s, Pos#, Set Label #) ->
       (# Consumed#, s, Pos#, Set Label, Maybe# a #)
   }
+
+parseText :: Parser StreamText a -> Text -> Either ParseError a
+parseText p = parse p . StreamText
+
+parseUtf8 :: Parser StreamUtf8 a -> ByteString -> Either ParseError a
+parseUtf8 p = parse p . StreamUtf8
 
 parse :: Parser s a -> s -> Either ParseError a
 parse (Parser p) input =
