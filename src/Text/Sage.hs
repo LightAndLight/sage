@@ -206,27 +206,34 @@ instance MonadPlus (Parser s)
 {-# inlineable string #-}
 string :: forall s. Stream (Of Char) Identity () s => Text -> Parser s Text
 string t =
-  Parser $ \state@(# input, pos, _ #) -> go state t input pos
+  Parser $ \state@(# input, pos, _ #) -> stringGo state t t input pos
     where
-      go :: (# s, Pos#, Set Label #) -> Text -> s -> Pos# -> (# Consumed#, s, Pos#, Set Label, Maybe# Text #)
-      go state expect !input' pos' =
+      stringGo :: 
+        (# s, Pos#, Set Label #) -> 
+        Text -> 
+        Text -> 
+        s -> 
+        Pos# -> 
+        (# Consumed#, s, Pos#, Set Label, Maybe# Text #)
+      stringGo state t' expect !input' pos' =
+        -- passing around t' prevents some re-boxing
         case Text.uncons expect of
           Nothing ->
             (# 1#
             , input'
             , pos'
             , mempty
-            , Just# t
+            , Just# t'
             #)
           Just (!expectedC, !expect') ->
             case fromResult . runIdentity $ Stream.uncons input' of
               Right (actualC :> input'') | expectedC == actualC ->
-                go state expect' input'' (pos' +# 1#)
+                stringGo state t' expect' input'' (pos' +# 1#)
               _ ->
                 let
                   !(# input, pos, ex #) = state
                 in
-                (# 0#, input, pos, Set.insert (Text t) ex, Nothing# #)
+                (# 0#, input, pos, Set.insert (Text t') ex, Nothing# #)
 
 count :: Parser s a -> Parser s Int
 count (Parser p) =

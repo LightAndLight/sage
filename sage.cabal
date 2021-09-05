@@ -46,6 +46,7 @@ benchmark sage-bench
   build-depends:       base >=4.12 && <5
                      , sage
                      , attoparsec
+                     , bytestring
                      , criterion
                      , deepseq >=1.4
                      , megaparsec

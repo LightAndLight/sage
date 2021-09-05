@@ -2,18 +2,10 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC
-    -ddump-simpl
-    -ddump-to-file
-    -dsuppress-idinfo
-    -dsuppress-coercions
-    -dsuppress-type-applications
-    -dsuppress-uniques
-    -dsuppress-module-prefixes
-#-}
-module Streaming.Class (Stream(..), toStream) where
+module Streaming.Class (module Data.Functor.Of, Stream(..), toStream) where
 
 import qualified Streaming
+import Data.Functor.Of
 
 class Stream f m a s | s -> f m a where
   data Result s :: *

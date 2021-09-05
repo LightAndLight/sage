@@ -1,5 +1,6 @@
 {-# language OverloadedLists #-}
 {-# language OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Test.Indentation (indentationTests) where
 
 import Control.Applicative ((<|>), many, optional, some)
@@ -9,13 +10,16 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 import Text.Parser.Char (char, letter, space, string)
 import Text.Sage (Label(..), ParseError(..), parse)
 import Text.Sage.Indentation (Amount(..), Indented, runIndented, current, indented)
+import Streaming.Class (Stream, Of)
+import Data.Functor.Identity (Identity)
+import Streaming.Text.Strict (StreamText(StreamText))
 
 data Def
   = Def Text [Def]
   | Print Text
   deriving (Eq, Show)
 
-pythonish :: Indented Def
+pythonish :: Stream (Of Char) Identity () s => Indented s Def
 pythonish =
   def <|>
   print'
@@ -44,7 +48,7 @@ indentationTests = do
            (,) <$>
            char 'a' <* char '\n' <*>
            indented (Add 2) (current *> char 'b')
-          ) input
+          ) (StreamText input)
           `shouldBe`
           Right ('a', 'b')
       it "4 spaces" $ do
@@ -60,7 +64,7 @@ indentationTests = do
            char 'a' <* char '\n' <*>
            indented (Add 4) (current *> char 'b')
           )
-          input
+          (StreamText input)
           `shouldBe`
           Right ('a', 'b')
       it "expected 2 spaces but got 0" $ do
@@ -76,7 +80,7 @@ indentationTests = do
            char 'a' <* char '\n' <*>
            indented (Add 2) (current *> char 'b')
           )
-          input
+          (StreamText input)
           `shouldBe`
           Left (Unexpected 2 [String "indent ==2"])
     describe "dedent" $ do
@@ -95,7 +99,7 @@ indentationTests = do
            indented (Add 2) (current *> char 'b' <* char '\n') <*>
            char 'c'
           )
-          input
+          (StreamText input)
           `shouldBe`
           Right ('a', 'b', 'c')
       it "2 spaces then back to 0 but stayed at 2" $ do
@@ -113,7 +117,7 @@ indentationTests = do
            indented (Add 2) (current *> char 'b' <* char '\n') <*>
            char 'c'
           )
-          input
+          (StreamText input)
           `shouldBe`
           Left (Unexpected 6 [String "dedent ==0"])
     describe "python-style, enforced 2-space indents" $ do
@@ -124,7 +128,7 @@ indentationTests = do
             [ "def hi():"
             , "  print(\"yes\")"
             ]
-        parse (runIndented 0 pythonish) input `shouldBe`
+        parse (runIndented 0 pythonish) (StreamText input) `shouldBe`
           Right (Def "hi" [Print "yes"])
       it "2" $ do
         let
@@ -134,7 +138,7 @@ indentationTests = do
             , "  def g():"
             , "    print(\"yes\")"
             ]
-        parse (runIndented 0 pythonish) input `shouldBe`
+        parse (runIndented 0 pythonish) (StreamText input) `shouldBe`
           Right (Def "f" [Def "g" [Print "yes"]])
       it "3" $ do
         let
@@ -145,7 +149,7 @@ indentationTests = do
             , "    print(\"yes\")"
             , "  print(\"no\")"
             ]
-        parse (runIndented 0 pythonish) input `shouldBe`
+        parse (runIndented 0 pythonish) (StreamText input) `shouldBe`
           Right (Def "f" [Def "g" [Print "yes"], Print "no"])
       it "4" $ do
         let
@@ -156,7 +160,7 @@ indentationTests = do
             , "      print(\"yes\")"
             , "    print(\"no\")"
             ]
-        parse (runIndented 0 pythonish) input `shouldBe`
+        parse (runIndented 0 pythonish) (StreamText input) `shouldBe`
           Left (Unexpected 39 [String "dedent ==0, ==2", String "indent ==6"])
       it "5" $ do
         let
@@ -168,7 +172,7 @@ indentationTests = do
             , "      print(\"yes\")"
             , "    print(\"no\")"
             ]
-        parse (runIndented 0 pythonish) input `shouldBe`
+        parse (runIndented 0 pythonish) (StreamText input) `shouldBe`
           Right (Def "f" [Def "g" [Def "h" [Print "yes"], Print "no"]])
       it "6" $ do
         let
@@ -180,5 +184,5 @@ indentationTests = do
             , "      print(\"yes\")"
             , "  print(\"no\")"
             ]
-        parse (runIndented 0 pythonish) input `shouldBe`
+        parse (runIndented 0 pythonish) (StreamText input) `shouldBe`
           Right (Def "f" [Def "g" [Def "h" [Print "yes"]], Print "no"])

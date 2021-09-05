@@ -10,8 +10,10 @@ import Data.Functor.Identity (Identity (Identity))
 import Data.Functor.Of (Of ((:>)))
 import qualified Data.Text as Text
 import Data.String (IsString)
+import Control.DeepSeq (NFData)
+
 newtype StreamText = StreamText Text
-  deriving (Eq, Show, IsString)
+  deriving (Eq, Show, IsString, NFData)
 
 instance Stream (Of Char) Identity () StreamText where
   data Result StreamText = Done | More !Char {-# unpack #-} !Text

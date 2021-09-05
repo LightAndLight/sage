@@ -39,6 +39,10 @@ import Streaming.Class (Stream)
 import Data.Functor.Identity (Identity)
 import Data.Functor.Of (Of)
 import Streaming.Text.Strict (StreamText(StreamText))
+import Data.String (IsString)
+import Data.ByteString (ByteString)
+import Streaming.ByteString.Strict.Utf8 (StreamByteStringUtf8(StreamByteStringUtf8))
+import qualified Data.Text.Encoding as Text.Encoding
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
   deriving (Generic, Show)
@@ -151,30 +155,68 @@ commasepMP = Megaparsec.parse (Megaparsec.sepBy (Megaparsec.char 'a') (Megaparse
 commasepAP :: Text -> Attoparsec.Result [Char]
 commasepAP = Attoparsec.parse (Attoparsec.sepBy (Attoparsec.char 'a') (Attoparsec.char ',') <* Attoparsec.endOfInput)
 
-lipsum :: Text
+lipsum :: IsString s => s
 lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequat sodales elit eget egestas. Suspendisse eget augue accumsan velit accumsan fringilla. Nam dolor ex, pulvinar id elit quis, eleifend porta quam. Vivamus tristique fringilla enim quis cursus. Sed ex eros, volutpat quis iaculis ut, mollis quis odio. Sed id turpis quis libero varius dictum. Aliquam ut massa non diam aliquam feugiat. Vestibulum condimentum mauris vel orci aliquet iaculis. Maecenas nec est dictum, sodales lorem eu, venenatis elit. Vestibulum eu eros ac ipsum maximus bibendum eu luctus magna. Nulla vitae lorem interdum, efficitur nibh non, auctor diam. In maximus quis arcu dignissim euismod. Sed maximus et augue quis fringilla. Donec sit amet felis nec nisi finibus sagittis eget ac est. Nam at sollicitudin sapien. Cras commodo felis ac sodales eleifend. Integer vitae iaculis risus. Fusce aliquam vel leo et tristique. Sed fringilla, metus non consequat pellentesque, eros ligula vehicula ante, eget volutpat."
 
-{-# NOINLINE sageMany #-}
-sageMany :: Text -> [Char]
-sageMany = Either.fromRight undefined . Parser.parse (many anyChar) . StreamText
+{-# inlineable sageMany #-}
+sageMany :: Stream (Of Char) Identity () s => s -> [Char]
+sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
 
-{-# NOINLINE sageSome #-}
-sageSome :: Text -> [Char]
-sageSome = Either.fromRight undefined . Parser.parse (some anyChar) . StreamText
+{-# NOINLINE sageManyText #-}
+sageManyText :: Text -> [Char]
+sageManyText = sageMany . StreamText
 
-a1000 :: Text
-a1000 = Text.replicate 1000 "a"
+{-# NOINLINE sageManyBS #-}
+sageManyBS :: ByteString -> [Char]
+sageManyBS = sageMany . StreamByteStringUtf8
 
-{-# NOINLINE sageChar #-}
-sageChar :: Text -> [Char]
-sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a') . StreamText
+{-# inlineable sageSome #-}
+sageSome :: Stream (Of Char) Identity () s => s -> [Char]
+sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
 
-hello1000 :: Text
-hello1000 = Text.replicate 1000 "hello"
+{-# NOINLINE sageSomeText #-}
+sageSomeText :: Text -> [Char]
+sageSomeText = sageSome . StreamText
 
-{-# NOINLINE sageString #-}
-sageString :: Text -> [Text]
-sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello") . StreamText
+{-# NOINLINE sageSomeBS #-}
+sageSomeBS :: ByteString -> [Char]
+sageSomeBS = sageSome . StreamByteStringUtf8
+
+a1000Text :: Text
+a1000Text = Text.replicate 1000 "a"
+
+a1000BS :: ByteString
+a1000BS = Text.Encoding.encodeUtf8 a1000Text
+
+{-# INLINABLE sageChar #-}
+sageChar :: Stream (Of Char) Identity () s => s -> [Char]
+sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
+
+{-# NOINLINE sageCharText #-}
+sageCharText :: Text -> [Char]
+sageCharText = sageChar . StreamText
+
+{-# NOINLINE sageCharBS #-}
+sageCharBS :: ByteString -> [Char]
+sageCharBS = sageChar . StreamByteStringUtf8
+
+hello1000Text :: Text
+hello1000Text = Text.replicate 1000 "hello"
+
+hello1000BS :: ByteString
+hello1000BS = Text.Encoding.encodeUtf8 hello1000Text
+
+{-# INLINABLE sageString #-}
+sageString :: Stream (Of Char) Identity () s => s -> [Text]
+sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello")
+
+{-# NOINLINE sageStringText #-}
+sageStringText :: Text -> [Text]
+sageStringText = sageString . StreamText
+
+{-# NOINLINE sageStringBS #-}
+sageStringBS :: ByteString -> [Text]
+sageStringBS = sageString . StreamByteStringUtf8
 
 main :: IO ()
 main = do
@@ -189,10 +231,16 @@ main = do
       file_5 <- Text.readFile "bench/res/depth_5.lam"
       mainWith $ do
         wgroup "sage" $ do
-          func' "many" sageMany lipsum
-          func' "some" sageSome lipsum
-          func' "char" sageChar a1000
-          func' "string" sageString hello1000
+          wgroup "Text" $do
+            func' "many" sageManyText lipsum
+            func' "some" sageSomeText lipsum
+            func' "char" sageCharText a1000Text
+            func' "string" sageStringText hello1000Text
+          wgroup "UTF-8 ByteString" $do
+            func' "many" sageManyBS lipsum
+            func' "some" sageSomeBS lipsum
+            func' "char" sageCharBS a1000BS
+            func' "string" sageStringBS hello1000BS
         func "sage x (\\y -> z)" parseLambda "x (\\y -> z)"
         func "megaparsec x (\\y -> z)" parseLambdaMP "x (\\y -> z)"
         func "attoparsec x (\\y -> z)" parseLambdaAP "x (\\y -> z)"
@@ -209,10 +257,18 @@ main = do
     "time" ->
       withArgs args . defaultMain $
         [ bgroup "sage"
-          [ bench "many" $ nf sageMany lipsum
-          , bench "some" $ nf sageSome lipsum
-          , bench "char" $ nf sageChar a1000
-          , bench "string" $ nf sageString hello1000
+          [ bgroup "Text"
+            [ bench "many" $ nf sageManyText lipsum
+            , bench "some" $ nf sageSomeText lipsum
+            , bench "char" $ nf sageCharText a1000Text
+            , bench "string" $ nf sageStringText hello1000Text
+            ]
+          , bgroup "UTF-8 ByteString"
+            [ bench "many" $ nf sageManyBS lipsum
+            , bench "some" $ nf sageSomeBS lipsum
+            , bench "char" $ nf sageCharBS a1000BS
+            , bench "string" $ nf sageStringBS hello1000BS
+            ]
           ]
         , parsersBench
         , let
