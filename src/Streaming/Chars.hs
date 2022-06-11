@@ -7,10 +7,11 @@ module Streaming.Chars (module Data.Functor.Of, Chars (..), toStream) where
 
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Functor.Of
+import Data.Kind (Type)
 import qualified Streaming
 
 class Chars s where
-  data Result s :: *
+  data Result s :: Type
   fromResult :: Result s -> Maybe (Char, s)
   uncons :: s -> Result s
 

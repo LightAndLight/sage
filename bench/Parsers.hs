@@ -9,13 +9,10 @@ import Control.DeepSeq (NFData)
 import Criterion.Main (Benchmark, bench, bgroup, nf)
 import qualified Data.Attoparsec.Text as Attoparsec
 import Data.Char (isLower)
-import Data.Text (Text, unpack)
-import Data.Void (Void)
+import Data.Text (unpack)
 import GHC.Generics (Generic)
 import Streaming.Chars (Chars)
 import Streaming.Chars.Text (StreamText (StreamText))
-import qualified Text.Megaparsec as Megaparsec
-import Text.Megaparsec.Parsers (ParsecT (unParsecT))
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
 import qualified Text.Sage as Sage
@@ -44,9 +41,6 @@ expr =
 exprSage :: Chars s => Sage.Parser s Expr
 exprSage = expr
 
-exprMP :: Megaparsec.Parsec Void Text Expr
-exprMP = unParsecT expr
-
 exprAP :: Attoparsec.Parser Expr
 exprAP = expr
 
@@ -58,14 +52,12 @@ parsersBench =
        in bgroup
             (unpack input)
             [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
-            , bench "megaparsec" $ nf (Megaparsec.parse exprMP "") input
             , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
             ]
     , let input = "\\x -> \\y -> x (\\z -> z y) y (\\x -> (\\y -> ((x y) z) (\\w -> x y w)))"
        in bgroup
             (unpack input)
             [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
-            , bench "megaparsec" $ nf (Megaparsec.parse exprMP "") input
             , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
             ]
     ]
