@@ -1,5 +1,10 @@
 # Revision history for sage
 
-## 0.1.0.0 -- YYYY-mm-dd
+## 0.2
 
-* First version. Released on an unsuspecting world.
+* Use `base >=4.16` (GHC 9.2)
+* Use `text >=2.0`
+
+## 0.1
+
+* Initial release
