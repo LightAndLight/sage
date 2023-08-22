@@ -26,12 +26,15 @@ Some code in this module has been copied from the `text` library's `Data.Text.In
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.Word (Word8)
-import GHC.Exts (Char (C#), chr#, uncheckedIShiftL#, word2Int#, (+#), (-#))
+import GHC.Exts (Char (C#), Int#, Word8#, chr#, uncheckedIShiftL#, int8ToInt#, word8ToInt8#, (+#), (-#))
 import GHC.Word (Word8 (W8#))
 import Streaming.Chars (Chars (..))
 
+word8ToInt# :: Word8# -> Int#
+word8ToInt# w = int8ToInt# (word8ToInt8# w)
+
 unsafeChr8 :: Word8 -> Char
-unsafeChr8 (W8# w#) = C# (chr# (word2Int# w#))
+unsafeChr8 (W8# w#) = C# (chr# (word8ToInt# w#))
 {-# INLINE unsafeChr8 #-}
 
 chr1 :: Word8 -> ByteString -> (# Char, ByteString #)
@@ -42,8 +45,8 @@ chr2 :: Word8 -> Word8 -> ByteString -> (# Char, ByteString #)
 chr2 (W8# x1#) (W8# x2#) bs =
   (# C# (chr# (z1# +# z2#)), bs #)
   where
-    !y1# = word2Int# x1#
-    !y2# = word2Int# x2#
+    !y1# = word8ToInt# x1#
+    !y2# = word8ToInt# x2#
     !z1# = uncheckedIShiftL# (y1# -# 0xC0#) 6#
     !z2# = y2# -# 0x80#
 {-# INLINE chr2 #-}
@@ -52,9 +55,9 @@ chr3 :: Word8 -> Word8 -> Word8 -> ByteString -> (# Char, ByteString #)
 chr3 (W8# x1#) (W8# x2#) (W8# x3#) bs =
   (# C# (chr# (z1# +# z2# +# z3#)), bs #)
   where
-    !y1# = word2Int# x1#
-    !y2# = word2Int# x2#
-    !y3# = word2Int# x3#
+    !y1# = word8ToInt# x1#
+    !y2# = word8ToInt# x2#
+    !y3# = word8ToInt# x3#
     !z1# = uncheckedIShiftL# (y1# -# 0xE0#) 12#
     !z2# = uncheckedIShiftL# (y2# -# 0x80#) 6#
     !z3# = y3# -# 0x80#
@@ -64,10 +67,10 @@ chr4 :: Word8 -> Word8 -> Word8 -> Word8 -> ByteString -> (# Char, ByteString #)
 chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) bs =
   (# C# (chr# (z1# +# z2# +# z3# +# z4#)), bs #)
   where
-    !y1# = word2Int# x1#
-    !y2# = word2Int# x2#
-    !y3# = word2Int# x3#
-    !y4# = word2Int# x4#
+    !y1# = word8ToInt# x1#
+    !y2# = word8ToInt# x2#
+    !y3# = word8ToInt# x3#
+    !y4# = word8ToInt# x4#
     !z1# = uncheckedIShiftL# (y1# -# 0xF0#) 18#
     !z2# = uncheckedIShiftL# (y2# -# 0x80#) 12#
     !z3# = uncheckedIShiftL# (y3# -# 0x80#) 6#
