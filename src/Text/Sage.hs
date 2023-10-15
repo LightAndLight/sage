@@ -56,7 +56,7 @@ import qualified Text.Parser.Char as CharParsing
 import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.LookAhead (LookAheadParsing (..))
-import Text.Parser.Token (TokenParsing)
+import Text.Parser.Token (TokenParsing (..))
 
 data Label
   = Eof
@@ -308,6 +308,7 @@ label l (Parser p) =
         (# consumed, input', pos', Set.insert l ex, res #)
 
 instance Chars s => Parsing (Parser s) where
+  {-# INLINEABLE try #-}
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
@@ -318,11 +319,13 @@ instance Chars s => Parsing (Parser s) where
             Just# _ ->
               (# consumed, input', pos', ex', res #)
 
+  {-# INLINEABLE (<?>) #-}
   (<?>) p n = label (String n) p
 
   {-# INLINE skipMany #-}
   skipMany = Text.Sage.skipMany
 
+  {-# INLINEABLE skipSome #-}
   skipSome (Parser p) =
     Parser $ \state ->
       case p state of
@@ -348,6 +351,7 @@ instance Chars s => Parsing (Parser s) where
                     #)
                   Just# _ -> go consumed'' (# input', pos', ex' #)
 
+  {-# INLINEABLE notFollowedBy #-}
   notFollowedBy (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
@@ -356,8 +360,10 @@ instance Chars s => Parsing (Parser s) where
             Nothing# -> (# 0#, input, pos, ex, Just# () #)
             Just# _ -> (# 0#, input, pos, ex, Nothing# #)
 
+  {-# INLINEABLE unexpected #-}
   unexpected _ = empty
 
+  {-# INLINEABLE eof #-}
   eof =
     Parser $ \(# input, pos, ex #) ->
       case fromResult $ Chars.uncons input of
@@ -375,6 +381,7 @@ instance Chars s => CharParsing (Parser s) where
         _ ->
           (# 0#, input, pos, ex, Nothing# #)
 
+  {-# INLINEABLE char #-}
   char c =
     Parser $ \(# input, pos, ex #) ->
       case fromResult $ Chars.uncons input of
@@ -384,11 +391,15 @@ instance Chars s => CharParsing (Parser s) where
         _ ->
           (# 0#, input, pos, Set.insert (Char c) ex, Nothing# #)
 
+  {-# INLINEABLE text #-}
   text = Text.Sage.string
 
-instance Chars s => TokenParsing (Parser s)
+instance Chars s => TokenParsing (Parser s) where
+  {-# INLINEABLE token #-}
+  token p = p <* (someSpace <|> pure ())
 
 instance Chars s => LookAheadParsing (Parser s) where
+  {-# INLINEABLE lookAhead #-}
   lookAhead (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
