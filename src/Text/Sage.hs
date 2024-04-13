@@ -2,14 +2,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MagicHash #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UnboxedSums #-}
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 module Text.Sage (
@@ -27,7 +24,7 @@ module Text.Sage (
   Span (..),
   spanContains,
   spanStart,
-  spanLength, -- , spanned
+  spanLength,
 
   -- * Combinators
   label,
@@ -58,6 +55,35 @@ import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.LookAhead (LookAheadParsing (..))
 import Text.Parser.Token (TokenParsing (..))
 
+-- | Parse a 'Text'.
+parseText :: Parser StreamText a -> Text -> Either ParseError a
+parseText p = parse p . StreamText
+
+-- | Parse a UTF-8 encoded 'ByteString'.
+parseUtf8 :: Parser StreamUtf8 a -> ByteString -> Either ParseError a
+parseUtf8 p = parse p . StreamUtf8
+
+-- | Parse an arbitrary string.
+parse :: Parser s a -> s -> Either ParseError a
+parse (Parser p) input =
+  case p (# input, 0#, mempty #) of
+    (# _, _, pos, ex, res #) ->
+      case res of
+        Nothing# -> Left $ Unexpected (I# pos) ex
+        Just# a -> Right a
+
+-- | A parsing error.
+data ParseError = Unexpected
+  -- | Byte offset at which the error occurred.
+  { position :: Int
+  -- | Names for things that the parser would have accepted at the point where it failed.
+  , expected :: Set Label
+  }
+  deriving (Eq, Show, Generic)
+
+instance NFData ParseError
+
+-- | Names for things the parser is expecting.
 data Label
   = Eof
   | Char Char
@@ -67,18 +93,21 @@ data Label
 
 instance NFData Label
 
-data ParseError = Unexpected
-  { position :: Int
-  , expected :: Set Label
+-- | A parser that consumes a string of type @s@ and produces a value of type @a@.
+newtype Parser s a = Parser
+  { unParser ::
+      (# s, Pos#, Set Label #) ->
+      (# Consumed#, s, Pos#, Set Label, Maybe# a #)
   }
-  deriving (Eq, Show, Generic)
-
-instance NFData ParseError
 
 type Consumed# = Int#
 
 type Pos# = Int#
 
+
+-- | The unboxed equivalent of 'Maybe'.
+--
+-- Contructors: 'Nothing#' and 'Just#'
 type Maybe# a = (# (# #) | a #)
 
 pattern Nothing# :: Maybe# a
@@ -88,26 +117,6 @@ pattern Just# :: a -> Maybe# a
 pattern Just# a = (# | a #)
 
 {-# COMPLETE Nothing#, Just# #-}
-
-newtype Parser s a = Parser
-  { unParser ::
-      (# s, Pos#, Set Label #) ->
-      (# Consumed#, s, Pos#, Set Label, Maybe# a #)
-  }
-
-parseText :: Parser StreamText a -> Text -> Either ParseError a
-parseText p = parse p . StreamText
-
-parseUtf8 :: Parser StreamUtf8 a -> ByteString -> Either ParseError a
-parseUtf8 p = parse p . StreamUtf8
-
-parse :: Parser s a -> s -> Either ParseError a
-parse (Parser p) input =
-  case p (# input, 0#, mempty #) of
-    (# _, _, pos, ex, res #) ->
-      case res of
-        Nothing# -> Left $ Unexpected (I# pos) ex
-        Just# a -> Right a
 
 instance Functor (Parser s) where
   fmap f (Parser p) =
