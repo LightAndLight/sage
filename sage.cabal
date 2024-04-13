@@ -12,7 +12,6 @@ description:
   which for some reason I thought was called 'parsley'. (I don't care for root vegetable puns)
 bug-reports:         https://github.com/lightandlight/sage/issues
 license:             BSD-3-Clause
-license-file:        LICENSE
 author:              Isaac Elliott
 maintainer:          isaace71295@gmail.com
 copyright:           2020-2022 Isaac Elliott
