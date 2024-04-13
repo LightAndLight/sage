@@ -41,12 +41,12 @@ benchmark sage-bench
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
   other-modules:       Parsers
-  build-depends:       base >=4.16 && <5
+  build-depends:       base
                      , sage
                      , attoparsec
                      , bytestring
                      , criterion
-                     , deepseq >=1.4
+                     , deepseq
                      , mmap
                      , parsers
                      , streaming
@@ -63,9 +63,9 @@ test-suite sage-test
   other-modules:       Test.Indentation
                      , Test.Parser
                      , Test.Span
-  build-depends:       base >=4.16 && <5
+  build-depends:       base
                      , sage
-                     , containers >=0.6
+                     , containers
                      , hedgehog
                      , hspec
                      , hspec-hedgehog
