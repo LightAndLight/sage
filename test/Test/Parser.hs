@@ -14,7 +14,7 @@ import Text.Parser.Char
 import Text.Parser.Combinators
 import Text.Sage
 
-decimal :: Chars s => Parser s Int
+decimal :: (Chars s) => Parser s Int
 decimal = read <$> some (satisfy isDigit <?> "digit")
 
 parserTests :: Spec

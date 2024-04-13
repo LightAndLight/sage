@@ -26,7 +26,7 @@ Some code in this module has been copied from the `text` library's `Data.Text.In
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.Word (Word8)
-import GHC.Exts (Char (C#), Int#, Word8#, chr#, uncheckedIShiftL#, int8ToInt#, word8ToInt8#, (+#), (-#))
+import GHC.Exts (Char (C#), Int#, Word8#, chr#, int8ToInt#, uncheckedIShiftL#, word8ToInt8#, (+#), (-#))
 import GHC.Word (Word8 (W8#))
 import Streaming.Chars (Chars (..))
 

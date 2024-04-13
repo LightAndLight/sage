@@ -79,10 +79,10 @@ type Consumed# = Int#
 
 type Pos# = Int#
 
-type Maybe# a = (# (# #)| a #)
+type Maybe# a = (# (# #) | a #)
 
 pattern Nothing# :: Maybe# a
-pattern Nothing# = (# (##) | #)
+pattern Nothing# = (# (# #) | #)
 
 pattern Just# :: a -> Maybe# a
 pattern Just# a = (# | a #)
@@ -227,7 +227,7 @@ instance Monad (Parser s) where
 instance MonadPlus (Parser s)
 
 {-# INLINEABLE string #-}
-string :: forall s. Chars s => Text -> Parser s Text
+string :: forall s. (Chars s) => Text -> Parser s Text
 string t =
   Parser $ \state@(# input, pos, _ #) -> stringGo state t t input pos
   where
@@ -253,7 +253,7 @@ string t =
           case fromResult $ Chars.uncons input' of
             Just (actualC, input'')
               | expectedC == actualC ->
-                stringGo state t' expect' input'' (pos' +# 1#)
+                  stringGo state t' expect' input'' (pos' +# 1#)
             _ ->
               let !(# input, pos, ex #) = state
                in (# 0#, input, pos, Set.insert (Text t') ex, Nothing# #)
@@ -307,7 +307,7 @@ label l (Parser p) =
       (# consumed, input', pos', _, res #) ->
         (# consumed, input', pos', Set.insert l ex, res #)
 
-instance Chars s => Parsing (Parser s) where
+instance (Chars s) => Parsing (Parser s) where
   {-# INLINEABLE try #-}
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
@@ -370,14 +370,14 @@ instance Chars s => Parsing (Parser s) where
         Nothing -> (# 0#, input, pos, ex, Just# () #)
         Just{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
 
-instance Chars s => CharParsing (Parser s) where
+instance (Chars s) => CharParsing (Parser s) where
   {-# INLINE satisfy #-}
   satisfy f =
     Parser $ \(# input, pos, ex #) ->
       case fromResult $ Chars.uncons input of
         Just (c, input')
           | f c ->
-            (# 1#, input', pos +# 1#, mempty, Just# c #)
+              (# 1#, input', pos +# 1#, mempty, Just# c #)
         _ ->
           (# 0#, input, pos, ex, Nothing# #)
 
@@ -387,18 +387,18 @@ instance Chars s => CharParsing (Parser s) where
       case fromResult $ Chars.uncons input of
         Just (c', input')
           | c == c' ->
-            (# 1#, input', pos +# 1#, mempty, Just# c #)
+              (# 1#, input', pos +# 1#, mempty, Just# c #)
         _ ->
           (# 0#, input, pos, Set.insert (Char c) ex, Nothing# #)
 
   {-# INLINEABLE text #-}
   text = Text.Sage.string
 
-instance Chars s => TokenParsing (Parser s) where
+instance (Chars s) => TokenParsing (Parser s) where
   {-# INLINEABLE token #-}
   token p = p <* (someSpace <|> pure ())
 
-instance Chars s => LookAheadParsing (Parser s) where
+instance (Chars s) => LookAheadParsing (Parser s) where
   {-# INLINEABLE lookAhead #-}
   lookAhead (Parser p) =
     Parser $ \(# input, pos, ex #) ->

@@ -19,18 +19,24 @@ data Def
   | Print Text
   deriving (Eq, Show)
 
-pythonish :: Chars s => Indented s Def
+pythonish :: (Chars s) => Indented s Def
 pythonish =
   def
     <|> print'
   where
     def =
-      Def . Text.pack <$ string "def" <* space
-        <*> some letter <* string "():" <* char '\n'
+      Def . Text.pack
+        <$ string "def"
+        <* space
+        <*> some letter
+        <* string "():"
+        <* char '\n'
         <*> indented Any (some (current *> pythonish <* optional (char '\n')))
     print' =
-      Print . Text.pack <$ string "print(\""
-        <*> many letter <* string "\")"
+      Print . Text.pack
+        <$ string "print(\""
+        <*> many letter
+        <* string "\")"
 
 indentationTests :: Spec
 indentationTests = do
@@ -45,7 +51,8 @@ indentationTests = do
         parse
           ( runIndented 0 $
               (,)
-                <$> char 'a' <* char '\n'
+                <$> char 'a'
+                <* char '\n'
                 <*> indented (Add 2) (current *> char 'b')
           )
           (StreamText input)
@@ -59,7 +66,8 @@ indentationTests = do
         parse
           ( runIndented 0 $
               (,)
-                <$> char 'a' <* char '\n'
+                <$> char 'a'
+                <* char '\n'
                 <*> indented (Add 4) (current *> char 'b')
           )
           (StreamText input)
@@ -73,7 +81,8 @@ indentationTests = do
         parse
           ( runIndented 0 $
               (,)
-                <$> char 'a' <* char '\n'
+                <$> char 'a'
+                <* char '\n'
                 <*> indented (Add 2) (current *> char 'b')
           )
           (StreamText input)
@@ -89,7 +98,8 @@ indentationTests = do
         parse
           ( runIndented 0 $
               (,,)
-                <$> char 'a' <* char '\n'
+                <$> char 'a'
+                <* char '\n'
                 <*> indented (Add 2) (current *> char 'b' <* char '\n')
                 <*> char 'c'
           )
@@ -105,7 +115,8 @@ indentationTests = do
         parse
           ( runIndented 0 $
               (,,)
-                <$> char 'a' <* char '\n'
+                <$> char 'a'
+                <* char '\n'
                 <*> indented (Add 2) (current *> char 'b' <* char '\n')
                 <*> char 'c'
           )

@@ -23,7 +23,7 @@ data Expr = Var String | Lam String Expr | App Expr Expr
 instance NFData Expr
 
 {-# INLINE expr #-}
-expr :: CharParsing m => m Expr
+expr :: (CharParsing m) => m Expr
 expr =
   lam
     <|> app
@@ -38,7 +38,7 @@ expr =
         <* spaces
     app = foldl App <$> atom <*> many atom
 
-exprSage :: Chars s => Sage.Parser s Expr
+exprSage :: (Chars s) => Sage.Parser s Expr
 exprSage = expr
 
 exprAP :: Attoparsec.Parser Expr

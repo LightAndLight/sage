@@ -36,15 +36,15 @@ newtype Indented s a = Indented {unIndented :: StateT (NonEmpty Int) (Parser s) 
     , Monad
     )
 
-deriving instance Chars s => Parsing (Indented s)
+deriving instance (Chars s) => Parsing (Indented s)
 
-deriving instance Chars s => CharParsing (Indented s)
+deriving instance (Chars s) => CharParsing (Indented s)
 
 runIndented :: Int -> Indented s a -> Parser s a
 runIndented lvl (Indented m) =
   evalStateT m (pure lvl)
 
-indentation :: Chars s => Int -> Parser s ()
+indentation :: (Chars s) => Int -> Parser s ()
 indentation expected =
   try
     ( do
@@ -67,7 +67,7 @@ relative lvl' = do
 
 data Amount = Add Int | Any
 
-indented :: Chars s => Amount -> Indented s a -> Indented s a
+indented :: (Chars s) => Amount -> Indented s a -> Indented s a
 indented amt p =
   case amt of
     Add n ->
@@ -81,7 +81,7 @@ indented amt p =
         *> p
         <* dedent
 
-parseIndent :: Chars s => Int -> Parser s Int
+parseIndent :: (Chars s) => Int -> Parser s Int
 parseIndent lvl =
   label
     (String $ "indent >" <> show lvl)
@@ -90,18 +90,19 @@ parseIndent lvl =
         n <$ guard (n > lvl)
     )
 
-indent :: Chars s => Indented s Int
+indent :: (Chars s) => Indented s Int
 indent = currentLevel >>= Indented . lift . parseIndent
 
 showDedentLevels :: NonEmpty Int -> String
 showDedentLevels lvls =
   "dedent "
     <> ( let x :| xs = NonEmpty.sort lvls
-          in "==" <> show x
+          in "=="
+              <> show x
               <> foldMap ((", ==" <>) . show) xs
        )
 
-dedent :: Chars s => Indented s ()
+dedent :: (Chars s) => Indented s ()
 dedent =
   Indented $ do
     _currentLvl :| levels <- get
@@ -121,7 +122,7 @@ dedent =
               )
         maybe empty put mRes
 
-current :: Chars s => Indented s ()
+current :: (Chars s) => Indented s ()
 current = do
   lvl <- currentLevel
   Indented . lift $ indentation lvl
