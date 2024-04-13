@@ -43,7 +43,7 @@ benchmark sage-bench
   other-modules:       Parsers
   build-depends:       base
                      , sage
-                     , attoparsec
+                     , attoparsec >=0.14 && <0.15
                      , bytestring
                      , criterion
                      , deepseq
