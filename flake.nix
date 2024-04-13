@@ -10,6 +10,7 @@
         haskellPackages.ghc
         haskell-language-server
         cabal-install
+        haskellPackages.fourmolu
       ];
     };
   });
