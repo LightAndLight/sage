@@ -123,15 +123,13 @@ instance Functor (Parser s) where
     Parser $ \input ->
       case p input of
         (# consumed, input', pos', ex', ra #) ->
-          (#
-            consumed
-            , input'
-            , pos'
-            , ex'
-            , case ra of
+          let
+            !rb =
+              case ra of
                 Nothing# -> Nothing#
                 Just# a -> Just# (f a)
-          #)
+          in
+            (# consumed, input', pos', ex', rb #)
 
 instance Applicative (Parser s) where
   pure a = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# a #)
@@ -145,17 +143,16 @@ instance Applicative (Parser s) where
             Just# f ->
               case pa (# input', pos', ex' #) of
                 (# aConsumed, input'', pos'', ex'', ra #) ->
-                  (#
-                    orI# fConsumed aConsumed
-                    , input''
-                    , pos''
-                    , ex''
-                    , case ra of
+                  let
+                    !bConsumed = orI# fConsumed aConsumed
+                    !rb =
+                      case ra of
                         Nothing# ->
                           Nothing#
                         Just# a ->
                           Just# (f a)
-                  #)
+                  in
+                    (# bConsumed, input'', pos'', ex'', rb #)
 
 instance Alternative (Parser s) where
   empty = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Nothing# #)
@@ -167,7 +164,8 @@ instance Alternative (Parser s) where
           case ra of
             Nothing# ->
               case aConsumed of
-                1# -> (# aConsumed, input', pos', ex', ra #)
+                1# ->
+                  (# aConsumed, input', pos', ex', ra #)
                 _ ->
                   pb (# input', pos', ex' #)
             Just# _ ->
@@ -180,19 +178,18 @@ instance Alternative (Parser s) where
       go consumed acc state =
         case p state of
           (# consumed', input', pos', ex', ra #) ->
-            let consumed'' = orI# consumed consumed'
-             in case ra of
-                  Nothing# ->
-                    (#
-                      consumed''
-                      , input'
-                      , pos'
-                      , ex'
-                      , case consumed' of
-                          1# -> Nothing#
-                          _ -> let !acc' = acc [] in Just# acc'
-                    #)
-                  Just# a -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
+            let !consumed'' = orI# consumed consumed' in
+            case ra of
+              Nothing# ->
+                let
+                  !ras =
+                    case consumed' of
+                      1# -> Nothing#
+                      _ -> let !acc' = acc [] in Just# acc'
+                in
+                (# consumed'', input', pos', ex', ras #)
+              Just# a ->
+                go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
   {-# INLINE some #-}
   some (Parser p) =
@@ -206,19 +203,18 @@ instance Alternative (Parser s) where
       go consumed acc (# !input, pos, ex #) =
         case p (# input, pos, ex #) of
           (# consumed', input', pos', ex', ra #) ->
-            let consumed'' = orI# consumed consumed'
+            let !consumed'' = orI# consumed consumed'
              in case ra of
                   Nothing# ->
-                    (#
-                      consumed''
-                      , input'
-                      , pos'
-                      , ex'
-                      , case consumed' of
+                    let
+                      !ras =
+                        case consumed' of
                           1# -> Nothing#
                           _ -> let !acc' = acc [] in Just# acc'
-                    #)
-                  Just# a -> go consumed'' (acc . (a :)) (# input', pos', ex' #)
+                    in
+                      (# consumed'', input', pos', ex', ras #)
+                  Just# a ->
+                    go consumed'' (acc . (a :)) (# input', pos', ex' #)
 
 instance Monad (Parser s) where
   Parser p >>= f =
@@ -231,7 +227,8 @@ instance Monad (Parser s) where
             Just# a ->
               case unParser (f a) (# input', pos', ex' #) of
                 (# consumed', input'', pos'', ex'', rb #) ->
-                  (# orI# consumed consumed', input'', pos'', ex'', rb #)
+                  let !consumed'' = orI# consumed consumed' in
+                  (# consumed'', input'', pos'', ex'', rb #)
 
 instance MonadPlus (Parser s)
 
@@ -274,19 +271,18 @@ count (Parser p) =
     go n consumed state =
       case p state of
         (# consumed', input', pos', ex', res #) ->
-          let consumed'' = orI# consumed consumed'
+          let !consumed'' = orI# consumed consumed'
            in case res of
                 Nothing# ->
-                  (#
-                    consumed''
-                    , input'
-                    , pos'
-                    , ex'
-                    , case consumed' of
+                  let
+                    !n' =
+                      case consumed' of
                         1# -> Nothing#
                         _ -> Just# (I# n)
-                  #)
-                Just# _ -> go (1# +# n) consumed'' (# input', pos', ex' #)
+                  in
+                    (# consumed'', input', pos', ex', n' #)
+                Just# _ ->
+                  go (1# +# n) consumed'' (# input', pos', ex' #)
 
 skipMany :: Parser s a -> Parser s ()
 skipMany (Parser p) =
@@ -295,18 +291,16 @@ skipMany (Parser p) =
     go consumed state =
       case p state of
         (# consumed', input', pos', ex', res #) ->
-          let consumed'' = orI# consumed consumed'
+          let !consumed'' = orI# consumed consumed'
            in case res of
                 Nothing# ->
-                  (#
-                    consumed''
-                    , input'
-                    , pos'
-                    , ex'
-                    , case consumed' of
+                  let
+                    !result =
+                      case consumed' of
                         1# -> Nothing#
                         _ -> Just# ()
-                  #)
+                  in
+                    (# consumed'', input', pos', ex', result #)
                 Just# _ -> go consumed'' (# input', pos', ex' #)
 
 label :: Label -> Parser s a -> Parser s a
@@ -346,19 +340,18 @@ instance (Chars s) => Parsing (Parser s) where
       go consumed state =
         case p state of
           (# consumed', input', pos', ex', res #) ->
-            let consumed'' = orI# consumed consumed'
+            let !consumed'' = orI# consumed consumed'
              in case res of
                   Nothing# ->
-                    (#
-                      consumed''
-                      , input'
-                      , pos'
-                      , ex'
-                      , case consumed' of
+                    let
+                      !result =
+                        case consumed' of
                           1# -> Nothing#
                           _ -> Just# ()
-                    #)
-                  Just# _ -> go consumed'' (# input', pos', ex' #)
+                    in
+                      (# consumed'', input', pos', ex', result #)
+                  Just# _ ->
+                    go consumed'' (# input', pos', ex' #)
 
   {-# INLINEABLE notFollowedBy #-}
   notFollowedBy (Parser p) =
