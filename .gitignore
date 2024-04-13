@@ -1,1 +1,4 @@
 dist-newstyle/
+
+.envrc
+.direnv/
