@@ -48,6 +48,7 @@ benchmark sage-bench
                      , criterion
                      , deepseq
                      , mmap
+                     , optparse-applicative >=0.18 && <0.19
                      , parsers
                      , streaming
                      , text
