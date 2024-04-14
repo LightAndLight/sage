@@ -23,7 +23,7 @@ Some code in this module has been copied from the `text` library's `Data.Text.In
 
 -}
 
-import Data.ByteString (ByteString)
+import Data.ByteString.Internal (ByteString(..))
 import qualified Data.ByteString as ByteString
 import Data.Word (Word8)
 import GHC.Exts (Char (C#), Int#, Word8#, chr#, int8ToInt#, uncheckedIShiftL#, word8ToInt8#, (+#), (-#))
@@ -78,20 +78,22 @@ chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) bs =
 {-# INLINE chr4 #-}
 
 decodeChar :: Word8 -> ByteString -> (# Char, ByteString #)
-decodeChar n1 bs =
+decodeChar n1 (BS ptr len) =
+  -- Explicitly pattern matching and reconstructing bytestrings like this allows GHC
+  -- to properly worker-wrapper transform it.
   if n1 < 0xC0
-    then chr1 n1 bs
-    else case ByteString.uncons bs of
+    then chr1 n1 (BS ptr len)
+    else case ByteString.uncons (BS ptr len) of
       Nothing -> error utf8Error
-      Just (n2, bs') ->
+      Just (n2, BS ptr' len') ->
         if n1 < 0xE0
-          then chr2 n1 n2 bs'
-          else case ByteString.uncons bs' of
+          then chr2 n1 n2 (BS ptr' len')
+          else case ByteString.uncons (BS ptr' len') of
             Nothing -> error utf8Error
-            Just (n3, bs'') ->
+            Just (n3, BS ptr'' len'') ->
               if n1 < 0xF0
-                then chr3 n1 n2 n3 bs''
-                else case ByteString.uncons bs'' of
+                then chr3 n1 n2 n3 (BS ptr'' len'')
+                else case ByteString.uncons (BS ptr'' len'') of
                   Nothing -> error utf8Error
                   Just (n4, bs''') ->
                     chr4 n1 n2 n3 n4 bs'''
