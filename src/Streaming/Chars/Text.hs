@@ -17,9 +17,11 @@ newtype StreamText = StreamText Text
 instance Chars StreamText where
   data Result StreamText = Done | More !Char {-# UNPACK #-} !Text
 
+  {-# inline fromResult #-}
   fromResult Done = Nothing
   fromResult (More c t) = Just (c, StreamText t)
 
+  {-# inline uncons #-}
   uncons (StreamText t) =
     case Text.uncons t of
       Nothing -> Done
