@@ -12,10 +12,11 @@ import Data.Char (isLower)
 import Data.Text (unpack)
 import GHC.Generics (Generic)
 import Streaming.Chars (Chars)
-import Streaming.Chars.Text (StreamText (StreamText))
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
 import qualified Text.Sage as Sage
+import Streaming.Chars.ByteString.Utf8 (StreamUtf8(..))
+import Data.Text.Encoding (encodeUtf8)
 
 data Expr = Var String | Lam String Expr | App Expr Expr
   deriving (Generic)
@@ -51,13 +52,13 @@ parsersBench =
     [ let input = "\\x -> \\y -> x (\\z -> z y) y"
        in bgroup
             (unpack input)
-            [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+            [ bench "sage" $ nf (Sage.parse exprSage . StreamUtf8) (encodeUtf8 input)
             , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
             ]
     , let input = "\\x -> \\y -> x (\\z -> z y) y (\\x -> (\\y -> ((x y) z) (\\w -> x y w)))"
        in bgroup
             (unpack input)
-            [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+            [ bench "sage" $ nf (Sage.parse exprSage . StreamUtf8) (encodeUtf8 input)
             , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
             ]
     ]

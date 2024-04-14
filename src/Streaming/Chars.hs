@@ -1,21 +1,19 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
-module Streaming.Chars (module Data.Functor.Of, Chars (..), toStream) where
+module Streaming.Chars (Chars(..)) {- (module Data.Functor.Of, Chars (..), toStream) -} where
 
-import Data.Functor.Identity (Identity (runIdentity))
-import Data.Functor.Of
-import Data.Kind (Type)
-import qualified Streaming
+import GHC.Exts (Addr#, Int#, Char#)
 
 class Chars s where
-  data Result s :: Type
-  fromResult :: Result s -> Maybe (Char, s)
-  uncons :: s -> Result s
+  unsafeWithPinned :: s -> ((# Addr#, Int# #) -> a) -> a
+  uncons :: (# Addr#, Int# #) -> Int# -> (# Int#, Char# #)
 
+{-
 instance (f ~ Of Char, m ~ Identity, a ~ ()) => Chars (Streaming.Stream f m a) where
   newtype Result (Streaming.Stream f m a) = Result {getResult :: Either a (f (Streaming.Stream f m a))}
   fromResult = either (\() -> Nothing) (\(c :> rest) -> Just (c, rest)) . getResult
@@ -23,3 +21,4 @@ instance (f ~ Of Char, m ~ Identity, a ~ ()) => Chars (Streaming.Stream f m a) w
 
 toStream :: (Chars s, Monad m) => s -> Streaming.Stream (Of Char) m ()
 toStream = Streaming.unfold (pure . maybe (Left ()) (\(c, rest) -> Right $ c :> rest) . fromResult . uncons)
+-}

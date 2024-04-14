@@ -11,6 +11,9 @@
         haskell-language-server
         cabal-install
         haskellPackages.fourmolu
+        
+        valgrind
+        python3 # used by cg_annotate
       ];
     };
   });

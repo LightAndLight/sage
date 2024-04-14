@@ -20,7 +20,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.Char (isLower)
 import qualified Data.Either as Either
-import Data.String (IsString)
+import Data.String (IsString, fromString)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text.Encoding
@@ -30,7 +30,6 @@ import qualified Options.Applicative as Options
 import Parsers (parsersBench)
 import Streaming.Chars (Chars)
 import Streaming.Chars.ByteString.Utf8 (StreamUtf8 (StreamUtf8))
-import Streaming.Chars.Text (StreamText (StreamText))
 import System.Environment (withArgs)
 import qualified System.IO.MMap as Mmap
 import Text.Parser.Char (CharParsing, anyChar, char, satisfy, text)
@@ -73,9 +72,11 @@ expr =
 parseLambda :: (Chars s) => s -> Either Parser.ParseError Expr
 parseLambda = Parser.parse expr
 
+{-
 {-# NOINLINE parseLambdaText #-}
 parseLambdaText :: Text -> Either Parser.ParseError Expr
 parseLambdaText = Parser.parse expr . StreamText
+-}
 
 {-# NOINLINE parseLambdaBS #-}
 parseLambdaBS :: ByteString -> Either Parser.ParseError Expr
@@ -85,8 +86,8 @@ parseLambdaBS = Parser.parse expr . StreamUtf8
 parseLambdaAP :: Text -> Either String Expr
 parseLambdaAP = Attoparsec.parseOnly expr
 
-manySymbols :: Text -> Either Parser.ParseError Int
-manySymbols = Parser.parse (ps <* eof) . StreamText
+manySymbols :: ByteString -> Either Parser.ParseError Int
+manySymbols = Parser.parse (ps <* eof) . StreamUtf8
   where
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
@@ -97,8 +98,8 @@ manySymbols = Parser.parse (ps <* eof) . StreamText
         <|> 5 <$ text "plato"
         <|> 6 <$ text "ticklish"
 
-manyTextsNaive :: Text -> Either Parser.ParseError Int
-manyTextsNaive = Parser.parse (ps <* eof) . StreamText
+manyTextsNaive :: ByteString -> Either Parser.ParseError Int
+manyTextsNaive = Parser.parse (ps <* eof) . StreamUtf8
   where
     t :: (Chars s) => Text -> Parser.Parser s ()
     t = Text.foldr (\c rest -> char c *> rest) (pure ())
@@ -112,8 +113,8 @@ manyTextsNaive = Parser.parse (ps <* eof) . StreamText
         <|> 5 <$ t "plato"
         <|> 6 <$ t "ticklish"
 
-manyTexts :: Text -> Either Parser.ParseError Int
-manyTexts = Parser.parse (ps <* eof) . StreamText
+manyTexts :: ByteString -> Either Parser.ParseError Int
+manyTexts = Parser.parse (ps <* eof) . StreamUtf8
   where
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
@@ -137,8 +138,8 @@ manyTextsAP = Attoparsec.parse (ps <* Attoparsec.endOfInput)
         <|> 5 <$ Attoparsec.string "plato"
         <|> 6 <$ Attoparsec.string "ticklish"
 
-commasep :: Text -> Either Parser.ParseError [Char]
-commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof) . StreamText
+commasep :: ByteString -> Either Parser.ParseError [Char]
+commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof) . StreamUtf8
 
 commasepAP :: Text -> Attoparsec.Result [Char]
 commasepAP = Attoparsec.parse (Attoparsec.sepBy (Attoparsec.char 'a') (Attoparsec.char ',') <* Attoparsec.endOfInput)
@@ -150,9 +151,11 @@ lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequ
 sageMany :: (Chars s) => s -> [Char]
 sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
 
+{-
 {-# NOINLINE sageManyText #-}
 sageManyText :: Text -> [Char]
 sageManyText = sageMany . StreamText
+-}
 
 {-# NOINLINE attoManyText #-}
 attoManyText :: Text -> [Char]
@@ -166,9 +169,11 @@ sageManyBS = sageMany . StreamUtf8
 sageSome :: (Chars s) => s -> [Char]
 sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
 
+{-
 {-# NOINLINE sageSomeText #-}
 sageSomeText :: Text -> [Char]
 sageSomeText = sageSome . StreamText
+-}
 
 {-# NOINLINE attoSomeText #-}
 attoSomeText :: Text -> [Char]
@@ -188,9 +193,11 @@ a1000BS = Text.Encoding.encodeUtf8 a1000Text
 sageChar :: (Chars s) => s -> [Char]
 sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
 
+{-
 {-# NOINLINE sageCharText #-}
 sageCharText :: Text -> [Char]
 sageCharText = sageChar . StreamText
+-}
 
 {-# NOINLINE attoCharText #-}
 attoCharText :: Text -> [Char]
@@ -210,9 +217,11 @@ hello1000BS = Text.Encoding.encodeUtf8 hello1000Text
 sageString :: (Chars s) => s -> [Text]
 sageString = Either.fromRight undefined . Parser.parse (many $ Parser.string "hello")
 
+{-
 {-# NOINLINE sageStringText #-}
 sageStringText :: Text -> [Text]
 sageStringText = sageString . StreamText
+-}
 
 {-# NOINLINE attoStringText #-}
 attoStringText :: Text -> [Text]
@@ -261,40 +270,43 @@ benchSpace = do
         func' "char" attoCharText a1000Text
         func' "string" attoStringText hello1000Text
     wgroup "sage" $ do
-      wgroup "Text" $ do
-        func' "many" sageManyText lipsum
-        func' "some" sageSomeText lipsum
-        func' "char" sageCharText a1000Text
-        func' "string" sageStringText hello1000Text
+      -- wgroup "Text" $ do
+        -- func' "many" sageManyText lipsum
+        -- func' "some" sageSomeText lipsum
+        -- func' "char" sageCharText a1000Text
+        -- func' "string" sageStringText hello1000Text
       wgroup "UTF-8 ByteString" $ do
         func' "many" sageManyBS lipsum
         func' "some" sageSomeBS lipsum
         func' "char" sageCharBS a1000BS
         func' "string" sageStringBS hello1000BS
-    func "sage x (\\y -> z)" parseLambdaText "x (\\y -> z)"
-    func "attoparsec x (\\y -> z)" parseLambdaAP "x (\\y -> z)"
-    func "sage x (\\y -> a b c d e)" parseLambdaText "x (\\y -> a b c d e)"
-    func "attoparsec x (\\y -> a b c d e)" parseLambdaAP "x (\\y -> a b c d e)"
-    func "sage x (\\y -> a b c d ~)" parseLambdaText "x (\\y -> a b c d ~)"
-    func "attoparsec x (\\y -> a b c d ~)" parseLambdaAP "x (\\y -> a b c d ~)"
+    wgroup "x (\\y -> z)" $ do
+      func "sage" parseLambdaBS "x (\\y -> z)"
+      func "attoparsec" parseLambdaAP "x (\\y -> z)"
+    wgroup "x (\\y -> a b c d e)" $ do
+      func "sage" parseLambdaBS "x (\\y -> a b c d e)"
+      func "attoparsec" parseLambdaAP "x (\\y -> a b c d e)"
+    wgroup "x (\\y -> a b c d ~)" $ do
+      func "sage" parseLambdaBS "x (\\y -> a b c d ~)"
+      func "attoparsec" parseLambdaAP "x (\\y -> a b c d ~)"
     wgroup "32B file" $ do
       wgroup "just parsing" $ do
         func' "attoparsec" parseLambdaAP file_5
         wgroup "sage" $ do
-          func' "Text" parseLambdaText file_5
+          -- func' "Text" parseLambdaText file_5
           func' "UTF-8 ByteString" parseLambdaBS file_5BS
       wgroup "read file and parse" $ do
-        io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_5.lam"
+        -- io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_5.lam"
         io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_5.lam"
         io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_5.lam"
     wgroup "10KB file" $ do
       wgroup "just parsing" $ do
         func' "attoparsec" parseLambdaAP file_15
         wgroup "sage" $ do
-          func' "Text" parseLambdaText file_15
+          -- func' "Text" parseLambdaText file_15
           func' "UTF-8 ByteString" parseLambdaBS file_15BS
       wgroup "read file and parse" $ do
-        io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
+        -- io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
         io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
         io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_15.lam"
 
@@ -303,14 +315,14 @@ benchTime args =
   withArgs args . defaultMain $
     [ bgroup
         "sage"
-        [ bgroup
+        {- [ bgroup
             "Text"
-            [ bench "many" $ nf sageManyText lipsum
-            , bench "some" $ nf sageSomeText lipsum
-            , bench "char" $ nf sageCharText a1000Text
-            , bench "string" $ nf sageStringText hello1000Text
-            ]
-        , bgroup
+            -- [ bench "many" $ nf sageManyText lipsum
+            -- [ bench "some" $ nf sageSomeText lipsum
+            -- [ bench "char" $ nf sageCharText a1000Text
+            -- [ bench "string" $ nf sageStringText hello1000Text
+            ] -}
+        [ bgroup
             "UTF-8 ByteString"
             [ bench "many" $ nf sageManyBS lipsum
             , bench "some" $ nf sageSomeBS lipsum
@@ -323,34 +335,40 @@ benchTime args =
           manyBadInput = "hello goopy wonder several plato ticklish boomy"
        in bgroup
             "combinator comparisons"
-            [ bench "sage symbols good" $ nf (\input -> let output@Right{} = manySymbols input in output) manyGoodInput
-            , bench "sage symbols bad" $ nf (\input -> let output@Left{} = manySymbols input in output) manyBadInput
-            , bench "sage texts good" $ nf (\input -> let output@Right{} = manyTexts input in output) manyGoodInput
-            , bench "sage texts bad" $ nf (\input -> let output@Left{} = manyTexts input in output) manyBadInput
-            , bench "sage texts naive good" $ nf (\input -> let output@Right{} = manyTextsNaive input in output) manyGoodInput
-            , bench "sage texts naive bad" $ nf (\input -> let output@Left{} = manyTextsNaive input in output) manyBadInput
-            , bench "attoparsec texts good" $ nf (\input -> let output@Attoparsec.Partial{} = manyTextsAP input in output) manyGoodInput
-            , bench "attoparsec texts bad" $ nf (\input -> let output@Attoparsec.Fail{} = manyTextsAP input in output) manyBadInput
+            [ bench "sage symbols good" $ nf (\input -> let output@Right{} = manySymbols input in output) (fromString manyGoodInput)
+            , bench "sage symbols bad" $ nf (\input -> let output@Left{} = manySymbols input in output) (fromString manyBadInput)
+            , bench "sage texts good" $ nf (\input -> let output@Right{} = manyTexts input in output) (fromString manyGoodInput)
+            , bench "sage texts bad" $ nf (\input -> let output@Left{} = manyTexts input in output) (fromString manyBadInput)
+            , bench "sage texts naive good" $ nf (\input -> let output@Right{} = manyTextsNaive input in output) (fromString manyGoodInput)
+            , bench "sage texts naive bad" $ nf (\input -> let output@Left{} = manyTextsNaive input in output) (fromString manyBadInput)
+            , bench "attoparsec texts good" $ nf (\input -> let output@Attoparsec.Partial{} = manyTextsAP input in output) (fromString manyGoodInput)
+            , bench "attoparsec texts bad" $ nf (\input -> let output@Attoparsec.Fail{} = manyTextsAP input in output) (fromString manyBadInput)
             ]
-    , bench "sage x (\\y -> z)" $ nf parseLambdaText "x (\\y -> z)"
-    , bench "attoparsec x (\\y -> z)" $ nf parseLambdaAP "x (\\y -> z)"
-    , bench "sage x (\\y -> a b c d e)" $ nf parseLambdaText "x (\\y -> a b c d e)"
-    , bench "attoparsec x (\\y -> a b c d e)" $ nf parseLambdaAP "x (\\y -> a b c d e)"
-    , bench "sage x (\\y -> a b c d ~)" $ nf parseLambdaText "x (\\y -> a b c d ~)"
-    , bench "attoparsec x (\\y -> a b c d ~)" $ nf parseLambdaAP "x (\\y -> a b c d ~)"
+    , bgroup "x (\\y -> z)"
+      [ bench "sage" $ nf parseLambdaBS "x (\\y -> z)"
+      , bench "attoparsec" $ nf parseLambdaAP "x (\\y -> z)"
+      ]
+    , bgroup "x (\\y -> a b c d e)"
+      [ bench "sage" $ nf parseLambdaBS "x (\\y -> a b c d e)"
+      , bench "attoparsec" $ nf parseLambdaAP "x (\\y -> a b c d e)"
+      ]
+    , bgroup "x (\\y -> a b c d ~)"
+      [ bench "sage" $ nf parseLambdaBS "x (\\y -> a b c d ~)"
+      , bench "attoparsec" $ nf parseLambdaAP "x (\\y -> a b c d ~)"
+      ]
     , let input = "\\x -> \\y -> x (\\z -> z y) y"
        in bgroup
             "\\x -> \\y -> x (\\z -> z y) y"
-            [ bench "sage" $ nf parseLambdaText input
-            , bench "attoparsec" $ nf (\i -> case parseLambdaAP i of Right x -> x; Left e -> error e) input
+            [ bench "sage" $ nf parseLambdaBS (fromString input)
+            , bench "attoparsec" $ nf (\i -> case parseLambdaAP i of Right x -> x; Left e -> error e) (fromString input)
             ]
     , env ((,) <$> Text.readFile "bench/res/depth_5.lam" <*> ByteString.readFile "bench/res/depth_5.lam") $ \ ~(file, fileBS) ->
         bgroup
           "32B file"
           [ bgroup
               "sage"
-              [ bench "Text" $ nf parseLambdaText file
-              , bench "UTF-8 ByteString" $ nf parseLambdaBS fileBS
+              -- [ bench "Text" $ nf parseLambdaText file
+              [ bench "UTF-8 ByteString" $ nf parseLambdaBS fileBS
               ]
           , bench "attoparsec" $ nf parseLambdaAP file
           ]
@@ -361,8 +379,8 @@ benchTime args =
               "just parsing"
               [ bgroup
                   "sage"
-                  [ bench "Text" $ nf parseLambdaText file
-                  , bench "UTF-8 ByteString" $ nf parseLambdaBS fileBS
+                  -- [ bench "Text" $ nf parseLambdaText file
+                  [ bench "UTF-8 ByteString" $ nf parseLambdaBS fileBS
                   ]
               , bench "attoparsec" $ nf parseLambdaAP file
               ]
@@ -370,8 +388,8 @@ benchTime args =
               "read file and parse"
               [ bgroup
                   "sage"
-                  [ bench "Text" $ nfAppIO (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
-                  , bench "UTF-8 ByteString" $ nfAppIO (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
+                  -- [ bench "Text" $ nfAppIO (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
+                  [ bench "UTF-8 ByteString" $ nfAppIO (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
                   , bench "UTF-8 ByteString mmapped" $ nfAppIO (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_15.lam"
                   ]
               ]
@@ -379,7 +397,7 @@ benchTime args =
     , let input = "a,a,a,a,a,a,a,a"
        in bgroup
             "commasep"
-            [ bench "sage" $ nf commasep input
-            , bench "attoparsec" $ nf commasepAP input
+            [ bench "sage" $ nf commasep (fromString input)
+            , bench "attoparsec" $ nf commasepAP (fromString input)
             ]
     ]

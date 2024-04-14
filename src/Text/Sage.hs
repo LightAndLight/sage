@@ -1,3 +1,10 @@
+{-# OPTIONS_GHC -ddump-simpl
+    -ddump-to-file
+    -dsuppress-idinfo
+    -dsuppress-coercions
+    -dsuppress-type-applications
+    -dsuppress-uniques
+    -dsuppress-module-prefixes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -8,11 +15,12 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Text.Sage (
   -- * Parsing
   Parser,
-  parseText,
+  -- parseText,
   parseUtf8,
   parse,
 
@@ -29,6 +37,9 @@ module Text.Sage (
   -- * Combinators
   label,
   string,
+  takeWhile,
+  takeWhile1,
+  skipWhile,
   count,
   skipMany,
   getOffset,
@@ -42,32 +53,42 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GHC.Exts (Int (..), Int#, orI#, (+#))
+import GHC.Exts (Int (..), Int#, orI#, (+#), Addr#, (>#), Char (..), eqChar#, runRW#, Ptr (..), plusAddr#, (-#))
 import GHC.Generics (Generic)
-import Streaming.Chars (Chars, fromResult)
+import Streaming.Chars (Chars)
 import qualified Streaming.Chars as Chars
 import Streaming.Chars.ByteString.Utf8 (StreamUtf8 (StreamUtf8))
-import Streaming.Chars.Text (StreamText (StreamText))
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
 import Text.Parser.Combinators (Parsing)
 import qualified Text.Parser.Combinators as Parsing
 import Text.Parser.LookAhead (LookAheadParsing (..))
 import Text.Parser.Token (TokenParsing (..))
+import Data.Text.Short (ShortText)
+import Data.Text.Short.Unsafe (fromShortByteStringUnsafe)
+import Data.ByteString.Short (ShortByteString(..))
+import Data.Primitive.ByteArray (newByteArray, MutableByteArray (..), ByteArray (..), unsafeFreezeByteArray, copyPtrToMutableByteArray)
+import GHC.IO (IO(..), noDuplicate)
+import Data.Word (Word8)
+import Prelude hiding (takeWhile)
 
+{-
 -- | Parse a 'Text'.
 parseText :: Parser StreamText a -> Text -> Either ParseError a
 parseText p = parse p . StreamText
+-}
 
 -- | Parse a UTF-8 encoded 'ByteString'.
 parseUtf8 :: Parser StreamUtf8 a -> ByteString -> Either ParseError a
 parseUtf8 p = parse p . StreamUtf8
 
 -- | Parse an arbitrary string.
-parse :: Parser s a -> s -> Either ParseError a
+parse :: Chars s => Parser s a -> s -> Either ParseError a
 parse (Parser p) input =
-  case p (# input, 0#, mempty #) of
-    (# _, _, pos, ex, res #) ->
+  Chars.unsafeWithPinned input $
+  \bs ->
+  case p (# bs, 0#, mempty #) of
+    (# _, pos, ex, res #) ->
       case res of
         Nothing# -> Left $ Unexpected (I# pos) ex
         Just# a -> Right a
@@ -86,7 +107,7 @@ instance NFData ParseError
 -- | Names for things the parser is expecting.
 data Label
   = Eof
-  | Char Char
+  | Char {-# unpack #-} !Char
   | String String
   | Text Text
   deriving (Eq, Ord, Show, Generic)
@@ -96,8 +117,8 @@ instance NFData Label
 -- | A parser that consumes a string of type @s@ and produces a value of type @a@.
 newtype Parser s a = Parser
   { unParser ::
-      (# s, Pos#, Set Label #) ->
-      (# Consumed#, s, Pos#, Set Label, Maybe# a #)
+      (# (# Addr#, Int# #), Pos#, Set Label #) ->
+      (# Consumed#, Pos#, Set Label, Maybe# a #)
   }
 
 type Consumed# = Int#
@@ -122,27 +143,27 @@ instance Functor (Parser s) where
   fmap f (Parser p) =
     Parser $ \input ->
       case p input of
-        (# consumed, input', pos', ex', ra #) ->
+        (# consumed, pos', ex', ra #) ->
           let
             !rb =
               case ra of
                 Nothing# -> Nothing#
                 Just# a -> Just# (f a)
           in
-            (# consumed, input', pos', ex', rb #)
+            (# consumed, pos', ex', rb #)
 
 instance Applicative (Parser s) where
-  pure a = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# a #)
+  pure a = Parser $ \(# _input, pos, ex #) -> (# 0#, pos, ex, Just# a #)
   Parser pf <*> Parser pa =
-    Parser $ \input ->
-      case pf input of
-        (# fConsumed, input', pos', ex', rf #) ->
+    Parser $ \(# input, pos, ex #) ->
+      case pf (# input, pos, ex #) of
+        (# fConsumed, pos', ex', rf #) ->
           case rf of
             Nothing# ->
-              (# fConsumed, input', pos', ex', Nothing# #)
+              (# fConsumed, pos', ex', Nothing# #)
             Just# f ->
-              case pa (# input', pos', ex' #) of
-                (# aConsumed, input'', pos'', ex'', ra #) ->
+              case pa (# input, pos', ex' #) of
+                (# aConsumed, pos'', ex'', ra #) ->
                   let
                     !bConsumed = orI# fConsumed aConsumed
                     !rb =
@@ -152,32 +173,32 @@ instance Applicative (Parser s) where
                         Just# a ->
                           Just# (f a)
                   in
-                    (# bConsumed, input'', pos'', ex'', rb #)
+                    (# bConsumed, pos'', ex'', rb #)
 
 instance Alternative (Parser s) where
-  empty = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Nothing# #)
+  empty = Parser $ \(# _input, pos, ex #) -> (# 0#, pos, ex, Nothing# #)
 
   Parser pa <|> Parser pb =
     Parser $ \(# input, pos, ex #) ->
       case pa (# input, pos, ex #) of
-        (# aConsumed, input', pos', ex', ra #) ->
+        (# aConsumed, pos', ex', ra #) ->
           case ra of
             Nothing# ->
               case aConsumed of
                 1# ->
-                  (# aConsumed, input', pos', ex', ra #)
+                  (# aConsumed, pos', ex', ra #)
                 _ ->
-                  pb (# input', pos', ex' #)
+                  pb (# input, pos', ex' #)
             Just# _ ->
-              (# aConsumed, input', pos', ex', ra #)
+              (# aConsumed, pos', ex', ra #)
 
   {-# INLINE many #-}
   many (Parser p) =
     Parser (go 0# id)
     where
-      go consumed acc state =
-        case p state of
-          (# consumed', input', pos', ex', ra #) ->
+      go consumed acc (# input, pos, ex #) =
+        case p (# input, pos, ex #) of
+          (# consumed', pos', ex', ra #) ->
             let !consumed'' = orI# consumed consumed' in
             case ra of
               Nothing# ->
@@ -187,22 +208,22 @@ instance Alternative (Parser s) where
                       1# -> Nothing#
                       _ -> let !acc' = acc [] in Just# acc'
                 in
-                (# consumed'', input', pos', ex', ras #)
+                (# consumed'', pos', ex', ras #)
               Just# a ->
-                go consumed'' (acc . (a :)) (# input', pos', ex' #)
+                go consumed'' (acc . (a :)) (# input, pos', ex' #)
 
   {-# INLINE some #-}
   some (Parser p) =
-    Parser $ \(# !input, pos, ex #) ->
+    Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
-        (# consumed, !input', pos', ex', ra #) ->
+        (# consumed, pos', ex', ra #) ->
           case ra of
-            Nothing# -> (# consumed, input', pos', ex', Nothing# #)
-            Just# a -> go consumed (a :) (# input', pos', ex' #)
+            Nothing# -> (# consumed, pos', ex', Nothing# #)
+            Just# a -> go consumed (a :) (# input, pos', ex' #)
     where
-      go consumed acc (# !input, pos, ex #) =
+      go consumed acc (# input, pos, ex #) =
         case p (# input, pos, ex #) of
-          (# consumed', input', pos', ex', ra #) ->
+          (# consumed', pos', ex', ra #) ->
             let !consumed'' = orI# consumed consumed'
              in case ra of
                   Nothing# ->
@@ -212,65 +233,58 @@ instance Alternative (Parser s) where
                           1# -> Nothing#
                           _ -> let !acc' = acc [] in Just# acc'
                     in
-                      (# consumed'', input', pos', ex', ras #)
+                      (# consumed'', pos', ex', ras #)
                   Just# a ->
-                    go consumed'' (acc . (a :)) (# input', pos', ex' #)
+                    go consumed'' (acc . (a :)) (# input, pos', ex' #)
 
 instance Monad (Parser s) where
   Parser p >>= f =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
-        (# consumed, input', pos', ex', ra #) ->
+        (# consumed, pos', ex', ra #) ->
           case ra of
             Nothing# ->
-              (# consumed, input', pos', ex', Nothing# #)
+              (# consumed, pos', ex', Nothing# #)
             Just# a ->
-              case unParser (f a) (# input', pos', ex' #) of
-                (# consumed', input'', pos'', ex'', rb #) ->
+              case unParser (f a) (# input, pos', ex' #) of
+                (# consumed', pos'', ex'', rb #) ->
                   let !consumed'' = orI# consumed consumed' in
-                  (# consumed'', input'', pos'', ex'', rb #)
+                  (# consumed'', pos'', ex'', rb #)
 
 instance MonadPlus (Parser s)
 
 {-# INLINEABLE string #-}
 string :: forall s. (Chars s) => Text -> Parser s Text
 string t =
-  Parser $ \state@(# input, pos, _ #) -> stringGo state t t input pos
+  Parser $ \state@(# _, pos, _ #) -> stringGo state t t pos
   where
     stringGo ::
-      (# s, Pos#, Set Label #) ->
+      (# (# Addr#, Int# #), Pos#, Set Label #) ->
       Text ->
       Text ->
-      s ->
       Pos# ->
-      (# Consumed#, s, Pos#, Set Label, Maybe# Text #)
-    stringGo state t' expect !input' pos' =
+      (# Consumed#, Pos#, Set Label, Maybe# Text #)
+    stringGo state@(# input, _, _ #) t' expect pos' =
       -- passing around t' prevents some re-boxing
       case Text.uncons expect of
         Nothing ->
-          (#
-            1#
-            , input'
-            , pos'
-            , mempty
-            , Just# t'
-          #)
+          (# 1#, pos', mempty, Just# t' #)
         Just (!expectedC, !expect') ->
-          case fromResult $ Chars.uncons input' of
-            Just (actualC, input'')
-              | expectedC == actualC ->
-                  stringGo state t' expect' input'' (pos' +# 1#)
-            _ ->
-              let !(# input, pos, ex #) = state
-               in (# 0#, input, pos, Set.insert (Text t') ex, Nothing# #)
+          case Chars.uncons @s input pos' of
+            (# offset, actualC #)
+              | 1# <- offset ># 0#, expectedC == C# actualC ->
+                  stringGo state t' expect' (pos' +# offset)
+              | otherwise ->
+                  let !(# _, pos, ex #) = state
+                   in (# 0#, pos, Set.insert (Text t') ex, Nothing# #)
 
 count :: Parser s a -> Parser s Int
 count (Parser p) =
   Parser (go 0# 0#)
   where
-    go n consumed state =
-      case p state of
-        (# consumed', input', pos', ex', res #) ->
+    go n consumed (# input, pos, ex #) =
+      case p (# input, pos, ex #) of
+        (# consumed', pos', ex', res #) ->
           let !consumed'' = orI# consumed consumed'
            in case res of
                 Nothing# ->
@@ -280,17 +294,17 @@ count (Parser p) =
                         1# -> Nothing#
                         _ -> Just# (I# n)
                   in
-                    (# consumed'', input', pos', ex', n' #)
+                    (# consumed'', pos', ex', n' #)
                 Just# _ ->
-                  go (1# +# n) consumed'' (# input', pos', ex' #)
+                  go (1# +# n) consumed'' (# input, pos', ex' #)
 
 skipMany :: Parser s a -> Parser s ()
 skipMany (Parser p) =
   Parser (go 0#)
   where
-    go consumed state =
-      case p state of
-        (# consumed', input', pos', ex', res #) ->
+    go consumed (# input, pos, ex #) =
+      case p (# input, pos, ex #) of
+        (# consumed', pos', ex', res #) ->
           let !consumed'' = orI# consumed consumed'
            in case res of
                 Nothing# ->
@@ -300,27 +314,156 @@ skipMany (Parser p) =
                         1# -> Nothing#
                         _ -> Just# ()
                   in
-                    (# consumed'', input', pos', ex', result #)
-                Just# _ -> go consumed'' (# input', pos', ex' #)
+                    (# consumed'', pos', ex', result #)
+                Just# _ -> go consumed'' (# input, pos', ex' #)
+
+{-# inline unsafeDupablePerformIO' #-}
+unsafeDupablePerformIO'  :: IO a -> a
+unsafeDupablePerformIO' (IO m) = case runRW# m of (# _, a #) -> a
+
+{-# inline unsafePerformIO' #-}
+unsafePerformIO' :: IO a -> a
+unsafePerformIO' m = unsafeDupablePerformIO' (noDuplicate >> m)
+
+{-# inline skipWhile #-}
+skipWhile :: forall s. Chars s => (Char -> Bool) -> Parser s ()
+skipWhile f =
+  Parser $ \(# input, pos, ex #) ->
+  let 
+    !(# consumed', pos', ex', result# #) =
+      go (# input, pos, Set.insert l ex #) 0#
+  in
+  case result# of
+    Nothing# ->
+      (# consumed', pos', ex', Nothing# #)
+    Just# () ->
+      (# consumed', pos', ex', Just# () #)
+  where
+    l = String "character (skipWhile)"
+    
+    go ::
+      (# (# Addr#, Int# #), Pos#, Set Label #) ->
+      Consumed# ->
+      (# Consumed#, Pos#, Set Label, Maybe# () #)
+    go (# input, pos, ex #) consumed =
+      case Chars.uncons @s input pos of
+        (# off, c #)
+          | 1# <- off ># 0#, f (C# c) ->
+              go (# input, pos +# off, Set.singleton l #) 1#
+          | otherwise ->
+              (# consumed, pos, ex, Just# () #)
+
+-- | @'takeWhile' f@ is equivalent to @'ShortText.pack' '<$>' 'many' ('satisfy' f)@
+takeWhile :: forall s. Chars s => (Char -> Bool) -> Parser s ShortText
+takeWhile f =
+  Parser $ \(# input@(# addr, _ #), pos, ex #) ->
+  let 
+    !(# consumed', pos', ex', result# #) =
+      go (# input, pos, Set.insert l ex #) 0#
+  in
+  case result# of
+    Nothing# ->
+      (# consumed', pos', ex', Nothing# #)
+    Just# () ->
+      let !size = pos' -# pos in
+      let
+        !(ByteArray ba) = unsafePerformIO' (do
+            MutableByteArray mba <- newByteArray (I# size)
+            copyPtrToMutableByteArray
+              (MutableByteArray mba)
+              (I# 0#)
+              (Ptr (plusAddr# addr pos) :: Ptr Word8)
+              (I# size)
+            unsafeFreezeByteArray (MutableByteArray mba)
+            )
+      in
+      let !result = fromShortByteStringUnsafe (SBS ba) in
+      (# consumed', pos', ex', Just# result #)
+  where
+    l = String "character (takeWhile)"
+    
+    go ::
+      (# (# Addr#, Int# #), Pos#, Set Label #) ->
+      Consumed# ->
+      (# Consumed#, Pos#, Set Label, Maybe# () #)
+    go (# input, pos, ex #) consumed =
+      case Chars.uncons @s input pos of
+        (# off, c #)
+          | 1# <- off ># 0#, f (C# c) ->
+              go (# input, pos +# off, Set.singleton l #) 1#
+          | otherwise ->
+              (# consumed, pos, ex, Just# () #)
+
+-- | @'takeWhile1' f@ is equivalent to @'ShortText.pack' '<$>' 'some' ('satisfy' f)@
+{-# inline takeWhile1 #-}
+takeWhile1 :: forall s. Chars s => (Char -> Bool) -> Parser s ShortText
+takeWhile1 f =
+  Parser $ \(# input@(# addr, _ #), pos, ex #) ->
+  let 
+    !(# consumed', pos', ex', result# #) =
+      go0 (# input, pos, Set.insert l ex #)
+  in
+  case result# of
+    Nothing# ->
+      (# consumed', pos', ex', Nothing# #)
+    Just# () ->
+      let !size = pos' -# pos in
+      let
+        !(ByteArray ba) = unsafePerformIO' (do
+            MutableByteArray mba <- newByteArray (I# size)
+            copyPtrToMutableByteArray
+              (MutableByteArray mba)
+              (I# 0#)
+              (Ptr (plusAddr# addr pos) :: Ptr Word8)
+              (I# size)
+            unsafeFreezeByteArray (MutableByteArray mba)
+            )
+      in
+      let !result = fromShortByteStringUnsafe (SBS ba) in
+      (# consumed', pos', ex', Just# result #)
+  where
+    l = String "character (takeWhile1)"
+
+    go0 ::
+      (# (# Addr#, Int# #), Pos#, Set Label #) ->
+      (# Consumed#, Pos#, Set Label, Maybe# () #)
+    go0 (# input, pos, ex #) =
+      case Chars.uncons @s input pos of
+        (# off, c #)
+          | 1# <- off ># 0#, f (C# c) ->
+                go (# input, pos +# off, Set.singleton l #)
+          | otherwise ->
+              (# 0#, pos, ex, Nothing# #)
+    
+    go ::
+      (# (# Addr#, Int# #), Pos#, Set Label #) ->
+      (# Consumed#, Pos#, Set Label, Maybe# () #)
+    go (# input, pos, ex #) =
+      case Chars.uncons @s input pos of
+        (# off, c #)
+          | 1# <- off ># 0#, f (C# c) ->
+                go (# input, pos +# off, ex #)
+          | otherwise ->
+              (# 1#, pos, ex, Just# () #)
 
 label :: Label -> Parser s a -> Parser s a
 label l (Parser p) =
   Parser $ \(# input, pos, ex #) ->
     case p (# input, pos, ex #) of
-      (# consumed, input', pos', _, res #) ->
-        (# consumed, input', pos', Set.insert l ex, res #)
+      (# consumed, pos', _, res #) ->
+        (# consumed, pos', Set.insert l ex, res #)
 
 instance (Chars s) => Parsing (Parser s) where
   {-# INLINEABLE try #-}
   try (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
-        (# consumed, input', pos', ex', res #) ->
+        (# consumed, pos', ex', res #) ->
           case res of
             Nothing# ->
-              (# 0#, input, pos, ex, res #)
+              (# 0#, pos, ex, res #)
             Just# _ ->
-              (# consumed, input', pos', ex', res #)
+              (# consumed, pos', ex', res #)
 
   {-# INLINEABLE (<?>) #-}
   (<?>) p n = label (String n) p
@@ -330,16 +473,16 @@ instance (Chars s) => Parsing (Parser s) where
 
   {-# INLINEABLE skipSome #-}
   skipSome (Parser p) =
-    Parser $ \state ->
-      case p state of
-        (# consumed, input', pos', ex', res #) ->
+    Parser $ \(# input, pos, ex #)->
+      case p (# input, pos, ex #) of
+        (# consumed, pos', ex', res #) ->
           case res of
-            Nothing# -> (# consumed, input', pos', ex', Nothing# #)
-            Just# _ -> go consumed (# input', pos', ex' #)
+            Nothing# -> (# consumed, pos', ex', Nothing# #)
+            Just# _ -> go consumed (# input, pos', ex' #)
     where
-      go consumed state =
-        case p state of
-          (# consumed', input', pos', ex', res #) ->
+      go consumed (# input, pos, ex #) =
+        case p (# input, pos, ex #) of
+          (# consumed', pos', ex', res #) ->
             let !consumed'' = orI# consumed consumed'
              in case res of
                   Nothing# ->
@@ -349,18 +492,18 @@ instance (Chars s) => Parsing (Parser s) where
                           1# -> Nothing#
                           _ -> Just# ()
                     in
-                      (# consumed'', input', pos', ex', result #)
+                      (# consumed'', pos', ex', result #)
                   Just# _ ->
-                    go consumed'' (# input', pos', ex' #)
+                    go consumed'' (# input, pos', ex' #)
 
   {-# INLINEABLE notFollowedBy #-}
   notFollowedBy (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
-        (# _, _, _, _, res #) ->
+        (# _, _, _, res #) ->
           case res of
-            Nothing# -> (# 0#, input, pos, ex, Just# () #)
-            Just# _ -> (# 0#, input, pos, ex, Nothing# #)
+            Nothing# -> (# 0#, pos, ex, Just# () #)
+            Just# _ -> (# 0#, pos, ex, Nothing# #)
 
   {-# INLINEABLE unexpected #-}
   unexpected _ = empty
@@ -368,30 +511,35 @@ instance (Chars s) => Parsing (Parser s) where
   {-# INLINEABLE eof #-}
   eof =
     Parser $ \(# input, pos, ex #) ->
-      case fromResult $ Chars.uncons input of
-        Nothing -> (# 0#, input, pos, ex, Just# () #)
-        Just{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
+      case Chars.uncons @s input pos of
+        (# offset, _c #)
+          | 0# <- offset ->
+              (# 0#, pos, ex, Just# () #)
+          | otherwise ->
+              (# 0#, pos, Set.insert Eof ex, Nothing# #)
 
 instance (Chars s) => CharParsing (Parser s) where
   {-# INLINE satisfy #-}
   satisfy f =
     Parser $ \(# input, pos, ex #) ->
-      case fromResult $ Chars.uncons input of
-        Just (c, input')
-          | f c ->
-              (# 1#, input', pos +# 1#, mempty, Just# c #)
-        _ ->
-          (# 0#, input, pos, ex, Nothing# #)
+      case Chars.uncons @s input pos of
+        (# offset, c# #)
+          | 1# <- offset ># 0#, let c = C# c#, f c ->
+              (# 1#, pos +# offset, mempty, Just# c #)
+          | otherwise ->
+              (# 0#, pos, ex, Nothing# #)
 
-  {-# INLINEABLE char #-}
-  char c =
-    Parser $ \(# input, pos, ex #) ->
-      case fromResult $ Chars.uncons input of
-        Just (c', input')
-          | c == c' ->
-              (# 1#, input', pos +# 1#, mempty, Just# c #)
-        _ ->
-          (# 0#, input, pos, Set.insert (Char c) ex, Nothing# #)
+  {-# inline char #-}
+  char x@(C# x#) =
+    Parser (go x x#)
+    where
+      go c c# (# input, pos, ex #) =
+        case Chars.uncons @s input pos of
+          (# offset, c'# #)
+            | 1# <- offset ># 0# , 1# <- eqChar# c# c'# ->
+                (# 1#, pos +# offset, mempty, Just# c #)
+            | otherwise ->
+                (# 0#, pos, Set.insert (Char (C# c#)) ex, Nothing# #)
 
   {-# INLINEABLE text #-}
   text = Text.Sage.string
@@ -405,11 +553,11 @@ instance (Chars s) => LookAheadParsing (Parser s) where
   lookAhead (Parser p) =
     Parser $ \(# input, pos, ex #) ->
       case p (# input, pos, ex #) of
-        (# _, _, _, _, res #) ->
-          (# 0#, input, pos, ex, res #)
+        (# _,  _, _, res #) ->
+          (# 0#, pos, ex, res #)
 
 getOffset :: Parser s Int
-getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# (I# pos) #)
+getOffset = Parser $ \(# _input, pos, ex #) -> (# 0#, pos, ex, Just# (I# pos) #)
 
 data Span = Span {-# UNPACK #-} !Int {-# UNPACK #-} !Int
   deriving (Eq, Ord, Show)

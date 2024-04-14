@@ -25,13 +25,15 @@ library
                      , Text.Sage
                      , Text.Sage.Indentation
   build-depends:       base >=4.16 && <5
-                     , bytestring
+                     , bytestring >=0.11 && <0.12
                      , containers >=0.6
                      , deepseq >=1.4
                      , mtl
                      , parsers
+                     , primitive
                      , streaming
                      , text >=2.0
+                     , text-short
                      , transformers
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -72,5 +74,16 @@ test-suite sage-test
                      , hspec-hedgehog
                      , parsers
                      , text
+  default-language:    Haskell2010
+  ghc-options:         -Wall -Werror
+
+executable sage-example-cache
+  hs-source-dirs:      examples/cache
+  main-is:             Main.hs
+  build-depends:       base
+                     , bytestring
+                     , sage
+                     , parsers
+                     , text-short
   default-language:    Haskell2010
   ghc-options:         -Wall -Werror
