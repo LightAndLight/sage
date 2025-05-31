@@ -1,5 +1,9 @@
 # Revision history for sage
 
+## 0.3
+
+* Removed `parsers` instances (now in `parsers-sage` package)
+
 ## 0.2
 
 * Use `base >=4.16` (GHC 9.2)

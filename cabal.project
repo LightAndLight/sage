@@ -1,3 +1,19 @@
-packages: .
+packages:
+  ./parsers-indentation
+  ./parsers-sage
+  ./sage
+  ./sage-bench
 tests: True
 benchmarks: True
+
+source-repository-package
+  type: git
+  location: https://github.com/LightAndLight/parsers.git
+  tag: ee9c5ec5ef769a49cb76d0fb3b0c949fdf3fdd34
+  subdir: parsers
+
+source-repository-package
+  type: git
+  location: https://github.com/LightAndLight/parsers.git
+  tag: ee9c5ec5ef769a49cb76d0fb3b0c949fdf3fdd34
+  subdir: parsers-attoparsec
