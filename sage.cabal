@@ -19,7 +19,8 @@ category:            Text
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Streaming.Chars
+  exposed-modules:     Data.Maybe.Unboxed
+                     , Streaming.Chars
                      , Streaming.Chars.ByteString.Utf8
                      , Streaming.Chars.Text
                      , Text.Sage

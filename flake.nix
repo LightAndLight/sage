@@ -14,6 +14,7 @@
         
         valgrind
         python3 # used by cg_annotate
+        linuxKernel.packages.linux_5_15.perf
       ];
     };
   });

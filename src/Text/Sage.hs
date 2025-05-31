@@ -71,6 +71,7 @@ import Data.Primitive.ByteArray (newByteArray, MutableByteArray (..), ByteArray 
 import GHC.IO (IO(..), noDuplicate)
 import Data.Word (Word8)
 import Prelude hiding (takeWhile)
+import Data.Maybe.Unboxed (Maybe#, pattern Nothing#, pattern Just#)
 
 {-
 -- | Parse a 'Text'.
@@ -117,27 +118,16 @@ instance NFData Label
 -- | A parser that consumes a string of type @s@ and produces a value of type @a@.
 newtype Parser s a = Parser
   { unParser ::
-      (# (# Addr#, Int# #), Pos#, Set Label #) ->
+      (# ByteString#, Pos#, Set Label #) ->
       (# Consumed#, Pos#, Set Label, Maybe# a #)
   }
 
-type Consumed# = Int#
+type ByteString# = (# Addr#, Int# #)
 
 type Pos# = Int#
 
+type Consumed# = Int#
 
--- | The unboxed equivalent of 'Maybe'.
---
--- Contructors: 'Nothing#' and 'Just#'
-type Maybe# a = (# (# #) | a #)
-
-pattern Nothing# :: Maybe# a
-pattern Nothing# = (# (# #) | #)
-
-pattern Just# :: a -> Maybe# a
-pattern Just# a = (# | a #)
-
-{-# COMPLETE Nothing#, Just# #-}
 
 instance Functor (Parser s) where
   fmap f (Parser p) =
