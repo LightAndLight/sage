@@ -4,18 +4,19 @@
 
 module Test.Parser (parserTests) where
 
-import Control.Applicative (empty, (<|>))
+import Control.Applicative (empty, (<|>), some, many)
 import Data.Char (isDigit)
 import qualified Data.Set as Set
 import Streaming.Chars (Chars)
 import Streaming.Chars.Text (StreamText)
 import Test.Hspec
-import Text.Parser.Char
-import Text.Parser.Combinators
 import Text.Sage
 
+digit :: Chars s => Parser s Char
+digit = satisfy isDigit <?> "digit"
+
 decimal :: (Chars s) => Parser s Int
-decimal = read <$> some (satisfy isDigit <?> "digit")
+decimal = read <$> some digit
 
 parserTests :: Spec
 parserTests =
@@ -55,21 +56,21 @@ parserTests =
           input = "1122a344"
           output = Left (Unexpected 4 $ Set.fromList [Eof, String "digit"]) :: Either ParseError Int
       parse (decimal <* eof) input `shouldBe` output
-    it "parse (text \"ab\") \"ab\"" $ do
+    it "parse (string \"ab\") \"ab\"" $ do
       let input :: StreamText
           input = "ab"
           output = Right "ab"
-      parse (text "ab") input `shouldBe` output
-    it "parse (text \"ab\") \"ac\"" $ do
+      parse (string "ab") input `shouldBe` output
+    it "parse (string \"ab\") \"ac\"" $ do
       let input :: StreamText
           input = "ac"
           output = Left (Unexpected 0 $ Set.fromList [Text "ab"])
-      parse (text "ab") input `shouldBe` output
-    it "parse (text \"ab\") \"ac\"" $ do
+      parse (string "ab") input `shouldBe` output
+    it "parse (string \"ab\") \"ac\"" $ do
       let input :: StreamText
           input = "ac"
           output = Left (Unexpected 0 $ Set.fromList [Text "ab"])
-      parse (text "ab") input `shouldBe` output
+      parse (string "ab") input `shouldBe` output
     it "parse (sepBy (char 'a') (char 'b')) \"a\"" $ do
       let input :: StreamText
           input = "a"
@@ -80,16 +81,16 @@ parserTests =
           input = "ababa"
           output = Right ['a', 'a', 'a']
       parse (sepBy (char 'a') (char 'b')) input `shouldBe` output
-    it "parse (1 <$ text \"toast\" <|> 2 <$ text \"toot\" <|> 3 <$ text \"tock\") \"toot\"" $ do
+    it "parse (1 <$ string \"toast\" <|> 2 <$ string \"toot\" <|> 3 <$ string \"tock\") \"toot\"" $ do
       let input :: StreamText
           input = "toot"
           output = Right (2 :: Int)
-      parse (1 <$ text "toast" <|> 2 <$ text "toot" <|> 3 <$ text "tock") input `shouldBe` output
-    it "parse (1 <$ text \"toast\" <|> 2 <$ text \"toot\" <|> 3 <$ text \"tock\") \"tool\"" $ do
+      parse (1 <$ string "toast" <|> 2 <$ string "toot" <|> 3 <$ string "tock") input `shouldBe` output
+    it "parse (1 <$ string \"toast\" <|> 2 <$ string \"toot\" <|> 3 <$ string \"tock\") \"tool\"" $ do
       let input :: StreamText
           input = "tool"
           output = Left (Unexpected 0 $ Set.fromList [Text "toast", Text "toot", Text "tock"])
-      parse ((1 :: Int) <$ text "toast" <|> 2 <$ text "toot" <|> 3 <$ text "tock") input `shouldBe` output
+      parse ((1 :: Int) <$ string "toast" <|> 2 <$ string "toot" <|> 3 <$ string "tock") input `shouldBe` output
     it "parse (char 'a' *> char 'b') \"ab\"" $ do
       let input :: StreamText
           input = "ab"

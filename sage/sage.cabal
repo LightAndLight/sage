@@ -1,7 +1,7 @@
 cabal-version:       2.4
 
 name:                sage
-version:             0.2
+version:             0.3
 synopsis:            Efficient parser combinators
 description:
   Efficient parser combinators for modern Haskell.
@@ -19,17 +19,16 @@ category:            Text
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Streaming.Chars
+  exposed-modules:     Data.Maybe.Unboxed
+                     , Streaming.Chars
                      , Streaming.Chars.ByteString.Utf8
                      , Streaming.Chars.Text
                      , Text.Sage
-                     , Text.Sage.Indentation
   build-depends:       base >=4.16 && <5
                      , bytestring
                      , containers >=0.6
                      , deepseq >=1.4
                      , mtl
-                     , parsers
                      , streaming
                      , text >=2.0
                      , transformers
@@ -37,32 +36,11 @@ library
   default-language:    Haskell2010
   ghc-options:         -Wall -Werror
 
-benchmark sage-bench
-  type:                exitcode-stdio-1.0
-  main-is:             Main.hs
-  other-modules:       Parsers
-  build-depends:       base
-                     , sage
-                     , attoparsec >=0.14 && <0.15
-                     , bytestring
-                     , criterion
-                     , deepseq
-                     , mmap
-                     , optparse-applicative >=0.18 && <0.19
-                     , parsers
-                     , streaming
-                     , text
-                     , weigh
-  hs-source-dirs:      bench
-  default-language:    Haskell2010
-  ghc-options:         -Wall -Werror
-
 test-suite sage-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Main.hs
-  other-modules:       Test.Indentation
-                     , Test.Parser
+  other-modules:       Test.Parser
                      , Test.Span
   build-depends:       base
                      , sage
@@ -70,7 +48,7 @@ test-suite sage-test
                      , hedgehog
                      , hspec
                      , hspec-hedgehog
-                     , parsers
+                     , parsers >=0.13
                      , text
   default-language:    Haskell2010
   ghc-options:         -Wall -Werror

@@ -16,6 +16,8 @@ import Streaming.Chars.Text (StreamText (StreamText))
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
 import qualified Text.Sage as Sage
+import Text.Parser.Sage (getParsersSage)
+import Text.Parser.Attoparsec (getParsersAttoparsec)
 
 data Expr = Var String | Lam String Expr | App Expr Expr
   deriving (Generic)
@@ -39,10 +41,10 @@ expr =
     app = foldl App <$> atom <*> many atom
 
 exprSage :: (Chars s) => Sage.Parser s Expr
-exprSage = expr
+exprSage = getParsersSage expr
 
 exprAP :: Attoparsec.Parser Expr
-exprAP = expr
+exprAP = getParsersAttoparsec expr
 
 parsersBench :: Benchmark
 parsersBench =

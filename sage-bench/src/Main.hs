@@ -36,6 +36,8 @@ import qualified System.IO.MMap as Mmap
 import Text.Parser.Char (CharParsing, anyChar, char, satisfy, text)
 import Text.Parser.Combinators (between, eof, sepBy)
 import qualified Text.Sage as Parser
+import Text.Parser.Sage (getParsersSage)
+import Text.Parser.Attoparsec (getParsersAttoparsec)
 import Weigh
 
 data Expr = Var Text | Lam Text Expr | App Expr Expr
@@ -71,22 +73,22 @@ expr =
 
 {-# INLINEABLE parseLambda #-}
 parseLambda :: (Chars s) => s -> Either Parser.ParseError Expr
-parseLambda = Parser.parse expr
+parseLambda = Parser.parse (getParsersSage expr)
 
 {-# NOINLINE parseLambdaText #-}
 parseLambdaText :: Text -> Either Parser.ParseError Expr
-parseLambdaText = Parser.parse expr . StreamText
+parseLambdaText = Parser.parse (getParsersSage expr) . StreamText
 
 {-# NOINLINE parseLambdaBS #-}
 parseLambdaBS :: ByteString -> Either Parser.ParseError Expr
-parseLambdaBS = Parser.parse expr . StreamUtf8
+parseLambdaBS = Parser.parse (getParsersSage expr) . StreamUtf8
 
 {-# NOINLINE parseLambdaAP #-}
 parseLambdaAP :: Text -> Either String Expr
-parseLambdaAP = Attoparsec.parseOnly expr
+parseLambdaAP = Attoparsec.parseOnly (getParsersAttoparsec expr)
 
 manySymbols :: Text -> Either Parser.ParseError Int
-manySymbols = Parser.parse (ps <* eof) . StreamText
+manySymbols = Parser.parse (getParsersSage $ ps <* eof) . StreamText
   where
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
@@ -98,12 +100,12 @@ manySymbols = Parser.parse (ps <* eof) . StreamText
         <|> 6 <$ text "ticklish"
 
 manyTextsNaive :: Text -> Either Parser.ParseError Int
-manyTextsNaive = Parser.parse (ps <* eof) . StreamText
+manyTextsNaive = Parser.parse (ps <* Parser.eof) . StreamText
   where
     t :: (Chars s) => Text -> Parser.Parser s ()
-    t = Text.foldr (\c rest -> char c *> rest) (pure ())
+    t = Text.foldr (\c rest -> Parser.char c *> rest) (pure ())
 
-    ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
+    ps = (+) <$> p <*> (Parser.char ' ' *> ps <|> pure 0)
     p =
       1 <$ t "hello"
         <|> 2 <$ t "goopy"
@@ -113,9 +115,9 @@ manyTextsNaive = Parser.parse (ps <* eof) . StreamText
         <|> 6 <$ t "ticklish"
 
 manyTexts :: Text -> Either Parser.ParseError Int
-manyTexts = Parser.parse (ps <* eof) . StreamText
+manyTexts = Parser.parse (ps <* Parser.eof) . StreamText
   where
-    ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
+    ps = (+) <$> p <*> (Parser.char ' ' *> ps <|> pure 0)
     p =
       1 <$ Parser.string "hello"
         <|> 2 <$ Parser.string "goopy"
@@ -138,7 +140,7 @@ manyTextsAP = Attoparsec.parse (ps <* Attoparsec.endOfInput)
         <|> 6 <$ Attoparsec.string "ticklish"
 
 commasep :: Text -> Either Parser.ParseError [Char]
-commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof) . StreamText
+commasep = Parser.parse (getParsersSage $ sepBy (char 'a') (char ',') <* eof) . StreamText
 
 commasepAP :: Text -> Attoparsec.Result [Char]
 commasepAP = Attoparsec.parse (Attoparsec.sepBy (Attoparsec.char 'a') (Attoparsec.char ',') <* Attoparsec.endOfInput)
@@ -148,7 +150,7 @@ lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequ
 
 {-# INLINEABLE sageMany #-}
 sageMany :: (Chars s) => s -> [Char]
-sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
+sageMany = Either.fromRight undefined . Parser.parse (getParsersSage $ many anyChar)
 
 {-# NOINLINE sageManyText #-}
 sageManyText :: Text -> [Char]
@@ -156,7 +158,7 @@ sageManyText = sageMany . StreamText
 
 {-# NOINLINE attoManyText #-}
 attoManyText :: Text -> [Char]
-attoManyText = Either.fromRight undefined . Attoparsec.parseOnly (many anyChar)
+attoManyText = Either.fromRight undefined . Attoparsec.parseOnly (getParsersAttoparsec $ many anyChar)
 
 {-# NOINLINE sageManyBS #-}
 sageManyBS :: ByteString -> [Char]
@@ -164,7 +166,7 @@ sageManyBS = sageMany . StreamUtf8
 
 {-# INLINEABLE sageSome #-}
 sageSome :: (Chars s) => s -> [Char]
-sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
+sageSome = Either.fromRight undefined . Parser.parse (getParsersSage $ some anyChar)
 
 {-# NOINLINE sageSomeText #-}
 sageSomeText :: Text -> [Char]
@@ -172,7 +174,7 @@ sageSomeText = sageSome . StreamText
 
 {-# NOINLINE attoSomeText #-}
 attoSomeText :: Text -> [Char]
-attoSomeText = Either.fromRight undefined . Attoparsec.parseOnly (some anyChar)
+attoSomeText = Either.fromRight undefined . Attoparsec.parseOnly (getParsersAttoparsec $ some anyChar)
 
 {-# NOINLINE sageSomeBS #-}
 sageSomeBS :: ByteString -> [Char]
@@ -186,7 +188,7 @@ a1000BS = Text.Encoding.encodeUtf8 a1000Text
 
 {-# INLINEABLE sageChar #-}
 sageChar :: (Chars s) => s -> [Char]
-sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
+sageChar = Either.fromRight undefined . Parser.parse (getParsersSage . many $ char 'a')
 
 {-# NOINLINE sageCharText #-}
 sageCharText :: Text -> [Char]
@@ -194,7 +196,7 @@ sageCharText = sageChar . StreamText
 
 {-# NOINLINE attoCharText #-}
 attoCharText :: Text -> [Char]
-attoCharText = Either.fromRight undefined . Attoparsec.parseOnly (many $ char 'a')
+attoCharText = Either.fromRight undefined . Attoparsec.parseOnly (getParsersAttoparsec . many $ char 'a')
 
 {-# NOINLINE sageCharBS #-}
 sageCharBS :: ByteString -> [Char]
@@ -249,10 +251,10 @@ main = do
 
 benchSpace :: IO ()
 benchSpace = do
-  file_5 <- Text.readFile "bench/res/depth_5.lam"
-  file_5BS <- ByteString.readFile "bench/res/depth_5.lam"
-  file_15 <- Text.readFile "bench/res/depth_15.lam"
-  file_15BS <- ByteString.readFile "bench/res/depth_15.lam"
+  file_5 <- Text.readFile "res/depth_5.lam"
+  file_5BS <- ByteString.readFile "res/depth_5.lam"
+  file_15 <- Text.readFile "res/depth_15.lam"
+  file_15BS <- ByteString.readFile "res/depth_15.lam"
   mainWith $ do
     wgroup "attoparsec" $ do
       wgroup "Text" $ do
@@ -284,9 +286,9 @@ benchSpace = do
           func' "Text" parseLambdaText file_5
           func' "UTF-8 ByteString" parseLambdaBS file_5BS
       wgroup "read file and parse" $ do
-        io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_5.lam"
-        io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_5.lam"
-        io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_5.lam"
+        io "Text" (\path -> parseLambdaText <$> Text.readFile path) "res/depth_5.lam"
+        io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "res/depth_5.lam"
+        io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "res/depth_5.lam"
     wgroup "10KB file" $ do
       wgroup "just parsing" $ do
         func' "attoparsec" parseLambdaAP file_15
@@ -294,9 +296,9 @@ benchSpace = do
           func' "Text" parseLambdaText file_15
           func' "UTF-8 ByteString" parseLambdaBS file_15BS
       wgroup "read file and parse" $ do
-        io "Text" (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
-        io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
-        io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_15.lam"
+        io "Text" (\path -> parseLambdaText <$> Text.readFile path) "res/depth_15.lam"
+        io "UTF-8 ByteString" (\path -> parseLambdaBS <$> ByteString.readFile path) "res/depth_15.lam"
+        io "UTF-8 ByteString mmapped" (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "res/depth_15.lam"
 
 benchTime :: [String] -> IO ()
 benchTime args =
@@ -344,7 +346,7 @@ benchTime args =
             [ bench "sage" $ nf parseLambdaText input
             , bench "attoparsec" $ nf (\i -> case parseLambdaAP i of Right x -> x; Left e -> error e) input
             ]
-    , env ((,) <$> Text.readFile "bench/res/depth_5.lam" <*> ByteString.readFile "bench/res/depth_5.lam") $ \ ~(file, fileBS) ->
+    , env ((,) <$> Text.readFile "res/depth_5.lam" <*> ByteString.readFile "res/depth_5.lam") $ \ ~(file, fileBS) ->
         bgroup
           "32B file"
           [ bgroup
@@ -354,7 +356,7 @@ benchTime args =
               ]
           , bench "attoparsec" $ nf parseLambdaAP file
           ]
-    , env ((,) <$> Text.readFile "bench/res/depth_15.lam" <*> ByteString.readFile "bench/res/depth_15.lam") $ \ ~(file, fileBS) ->
+    , env ((,) <$> Text.readFile "res/depth_15.lam" <*> ByteString.readFile "res/depth_15.lam") $ \ ~(file, fileBS) ->
         bgroup
           "10KB file"
           [ bgroup
@@ -370,9 +372,9 @@ benchTime args =
               "read file and parse"
               [ bgroup
                   "sage"
-                  [ bench "Text" $ nfAppIO (\path -> parseLambdaText <$> Text.readFile path) "bench/res/depth_15.lam"
-                  , bench "UTF-8 ByteString" $ nfAppIO (\path -> parseLambdaBS <$> ByteString.readFile path) "bench/res/depth_15.lam"
-                  , bench "UTF-8 ByteString mmapped" $ nfAppIO (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "bench/res/depth_15.lam"
+                  [ bench "Text" $ nfAppIO (\path -> parseLambdaText <$> Text.readFile path) "res/depth_15.lam"
+                  , bench "UTF-8 ByteString" $ nfAppIO (\path -> parseLambdaBS <$> ByteString.readFile path) "res/depth_15.lam"
+                  , bench "UTF-8 ByteString mmapped" $ nfAppIO (\path -> parseLambdaBS <$> Mmap.mmapFileByteString path Nothing) "res/depth_15.lam"
                   ]
               ]
           ]
