@@ -1,8 +1,11 @@
-indentation: 2
 comma-style: leading
-record-brace-space: false
-indent-wheres: true
 diff-friendly-import-export: true
-respectful: false
 haddock-style: multi-line
+indentation: 2
+indent-wheres: true
+in-style: no-space
+let-style: auto
 newlines-between-decls: 1
+record-brace-space: false
+respectful: false
+single-constraint-parens: never

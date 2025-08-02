@@ -13,11 +13,11 @@ import Data.Text (unpack)
 import GHC.Generics (Generic)
 import Streaming.Chars (Chars)
 import Streaming.Chars.Text (StreamText (StreamText))
+import Text.Parser.Attoparsec (getParsersAttoparsec)
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
-import qualified Text.Sage as Sage
 import Text.Parser.Sage (getParsersSage)
-import Text.Parser.Attoparsec (getParsersAttoparsec)
+import qualified Text.Sage as Sage
 
 data Expr = Var String | Lam String Expr | App Expr Expr
   deriving (Generic)
@@ -25,7 +25,7 @@ data Expr = Var String | Lam String Expr | App Expr Expr
 instance NFData Expr
 
 {-# INLINE expr #-}
-expr :: (CharParsing m) => m Expr
+expr :: CharParsing m => m Expr
 expr =
   lam
     <|> app
@@ -40,7 +40,7 @@ expr =
         <* spaces
     app = foldl App <$> atom <*> many atom
 
-exprSage :: (Chars s) => Sage.Parser s Expr
+exprSage :: Chars s => Sage.Parser s Expr
 exprSage = getParsersSage expr
 
 exprAP :: Attoparsec.Parser Expr
@@ -50,16 +50,20 @@ parsersBench :: Benchmark
 parsersBench =
   bgroup
     "parsers"
-    [ let input = "\\x -> \\y -> x (\\z -> z y) y"
-       in bgroup
-            (unpack input)
-            [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
-            , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
-            ]
-    , let input = "\\x -> \\y -> x (\\z -> z y) y (\\x -> (\\y -> ((x y) z) (\\w -> x y w)))"
-       in bgroup
-            (unpack input)
-            [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
-            , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
-            ]
+    [ let
+        input = "\\x -> \\y -> x (\\z -> z y) y"
+      in
+        bgroup
+          (unpack input)
+          [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+          , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
+          ]
+    , let
+        input = "\\x -> \\y -> x (\\z -> z y) y (\\x -> (\\y -> ((x y) z) (\\w -> x y w)))"
+      in
+        bgroup
+          (unpack input)
+          [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+          , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
+          ]
     ]
