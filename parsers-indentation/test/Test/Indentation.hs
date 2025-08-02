@@ -11,16 +11,16 @@ import Streaming.Chars (Chars)
 import Streaming.Chars.Text (StreamText (StreamText))
 import Test.Hspec (Spec, describe, it, shouldBe)
 import Text.Parser.Char (char, letter, space, string)
-import Text.Sage (Label (..), ParseError (..), parse)
 import Text.Parser.Indentation (Amount (..), IndentationT, current, indented, runIndentationT)
-import Text.Parser.Sage (ParsersSage(..))
+import Text.Parser.Sage (ParsersSage (..))
+import Text.Sage (Label (..), ParseError (..), parse)
 
 data Def
   = Def Text [Def]
   | Print Text
   deriving (Eq, Show)
 
-pythonish :: (Chars s) => IndentationT (ParsersSage s) Def
+pythonish :: Chars s => IndentationT (ParsersSage s) Def
 pythonish =
   def
     <|> print'
@@ -44,11 +44,12 @@ indentationTests = do
   describe "Text.Sage.Indentation" $ do
     describe "indent" $ do
       it "2 spaces" $ do
-        let input =
-              Text.unlines
-                [ "a"
-                , "  b"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "a"
+              , "  b"
+              ]
         parse
           ( getParsersSage . runIndentationT 0 $
               (,)
@@ -59,11 +60,12 @@ indentationTests = do
           (StreamText input)
           `shouldBe` Right ('a', 'b')
       it "4 spaces" $ do
-        let input =
-              Text.unlines
-                [ "a"
-                , "    b"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "a"
+              , "    b"
+              ]
         parse
           ( getParsersSage . runIndentationT 0 $
               (,)
@@ -74,11 +76,12 @@ indentationTests = do
           (StreamText input)
           `shouldBe` Right ('a', 'b')
       it "expected 2 spaces but got 0" $ do
-        let input =
-              Text.unlines
-                [ "a"
-                , "b"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "a"
+              , "b"
+              ]
         parse
           ( getParsersSage . runIndentationT 0 $
               (,)
@@ -90,12 +93,13 @@ indentationTests = do
           `shouldBe` Left (Unexpected 2 [String "indent ==2"])
     describe "dedent" $ do
       it "2 spaces then back to 0" $ do
-        let input =
-              Text.unlines
-                [ "a"
-                , "  b"
-                , "c"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "a"
+              , "  b"
+              , "c"
+              ]
         parse
           ( getParsersSage . runIndentationT 0 $
               (,,)
@@ -107,12 +111,13 @@ indentationTests = do
           (StreamText input)
           `shouldBe` Right ('a', 'b', 'c')
       it "2 spaces then back to 0 but stayed at 2" $ do
-        let input =
-              Text.unlines
-                [ "a"
-                , "  b"
-                , "  c"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "a"
+              , "  b"
+              , "  c"
+              ]
         parse
           ( getParsersSage . runIndentationT 0 $
               (,,)
@@ -125,61 +130,67 @@ indentationTests = do
           `shouldBe` Left (Unexpected 6 [String "dedent ==0"])
     describe "python-style, enforced 2-space indents" $ do
       it "1" $ do
-        let input =
-              Text.unlines
-                [ "def hi():"
-                , "  print(\"yes\")"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "def hi():"
+              , "  print(\"yes\")"
+              ]
         parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "hi" [Print "yes"])
       it "2" $ do
-        let input =
-              Text.unlines
-                [ "def f():"
-                , "  def g():"
-                , "    print(\"yes\")"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "def f():"
+              , "  def g():"
+              , "    print(\"yes\")"
+              ]
         parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Print "yes"]])
       it "3" $ do
-        let input =
-              Text.unlines
-                [ "def f():"
-                , "  def g():"
-                , "    print(\"yes\")"
-                , "  print(\"no\")"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "def f():"
+              , "  def g():"
+              , "    print(\"yes\")"
+              , "  print(\"no\")"
+              ]
         parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Print "yes"], Print "no"])
       it "4" $ do
-        let input =
-              Text.unlines
-                [ "def f():"
-                , "  def g():"
-                , "      print(\"yes\")"
-                , "    print(\"no\")"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "def f():"
+              , "  def g():"
+              , "      print(\"yes\")"
+              , "    print(\"no\")"
+              ]
         parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Left (Unexpected 39 [String "dedent ==0, ==2", String "indent ==6"])
       it "5" $ do
-        let input =
-              Text.unlines
-                [ "def f():"
-                , "  def g():"
-                , "    def h():"
-                , "      print(\"yes\")"
-                , "    print(\"no\")"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "def f():"
+              , "  def g():"
+              , "    def h():"
+              , "      print(\"yes\")"
+              , "    print(\"no\")"
+              ]
         parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Def "h" [Print "yes"], Print "no"]])
       it "6" $ do
-        let input =
-              Text.unlines
-                [ "def f():"
-                , "  def g():"
-                , "    def h():"
-                , "      print(\"yes\")"
-                , "  print(\"no\")"
-                ]
+        let
+          input =
+            Text.unlines
+              [ "def f():"
+              , "  def g():"
+              , "    def h():"
+              , "      print(\"yes\")"
+              , "  print(\"no\")"
+              ]
         parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Def "h" [Print "yes"]], Print "no"])

@@ -1,11 +1,13 @@
-{-# language MagicHash #-}
-{-# language UnboxedTuples #-}
-{-# language PatternSynonyms #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE UnboxedTuples #-}
+
 module Data.Maybe.Unboxed where
 
--- | The unboxed equivalent of 'Maybe'.
---
--- Contructors: 'Nothing#' and 'Just#'
+{- | The unboxed equivalent of 'Maybe'.
+
+Contructors: 'Nothing#' and 'Just#'
+-}
 type Maybe# a = (# (# #) | a #)
 
 pattern Nothing# :: Maybe# a

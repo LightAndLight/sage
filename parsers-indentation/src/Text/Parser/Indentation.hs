@@ -1,5 +1,6 @@
-{-# language BangPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Text.Parser.Indentation (
   IndentationT (..),
   runIndentationT,
@@ -10,14 +11,14 @@ module Text.Parser.Indentation (
 ) where
 
 import Control.Applicative (Alternative, empty, many, (<|>))
-import Control.Monad (guard, MonadPlus)
-import Control.Monad.Trans.State (StateT, evalStateT, get, modify, put)
+import Control.Monad (MonadPlus, guard)
 import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State (StateT, evalStateT, get, modify, put)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Text.Parser.Combinators (Parsing(..))
-import Text.Parser.Char (CharParsing(..))
-import Text.Parser.LookAhead (LookAheadParsing(..))
+import Text.Parser.Char (CharParsing (..))
+import Text.Parser.Combinators (Parsing (..))
+import Text.Parser.LookAhead (LookAheadParsing (..))
 import Text.Parser.Token (TokenParsing)
 
 newtype IndentationT m a = IndentationT {unIndentationT :: StateT (NonEmpty Int) m a}
@@ -68,8 +69,9 @@ indented amt p =
     Any -> do
       lvl <- currentLevel
       IndentationT
-          (lift (lookAhead $ parseIndent lvl)
-            >>= modify . NonEmpty.cons)
+        ( lift (lookAhead $ parseIndent lvl)
+            >>= modify . NonEmpty.cons
+        )
         *> p
         <* dedent
 
@@ -83,8 +85,8 @@ parseIndent lvl =
   ( do
       n <- count $ char ' '
       n <$ guard (n > lvl)
-  ) <?>
-    ("indent >" ++ show lvl)
+  )
+    <?> ("indent >" ++ show lvl)
 
 indent :: (CharParsing m, Monad m) => IndentationT m Int
 indent = currentLevel >>= IndentationT . lift . parseIndent
@@ -92,10 +94,12 @@ indent = currentLevel >>= IndentationT . lift . parseIndent
 showDedentLevels :: NonEmpty Int -> String
 showDedentLevels lvls =
   "dedent "
-    <> ( let x :| xs = NonEmpty.sort lvls
-          in "=="
-              <> show x
-              <> foldMap ((", ==" <>) . show) xs
+    <> ( let
+          x :| xs = NonEmpty.sort lvls
+         in
+          "=="
+            <> show x
+            <> foldMap ((", ==" <>) . show) xs
        )
 
 dedent :: (CharParsing m, LookAheadParsing m, MonadPlus m) => IndentationT m ()
@@ -113,8 +117,8 @@ dedent =
                   if n `elem` levels
                     then Just (previousLvl :| rest)
                     else Nothing
-            ) <?>
-              showDedentLevels (previousLvl :| rest)
+            )
+              <?> showDedentLevels (previousLvl :| rest)
         maybe empty put mRes
 
 current :: (CharParsing m, Monad m) => IndentationT m ()

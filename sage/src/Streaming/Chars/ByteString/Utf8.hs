@@ -103,11 +103,11 @@ newtype StreamUtf8 = StreamUtf8 ByteString
 instance Chars StreamUtf8 where
   data Result StreamUtf8 = Done | More !Char {-# UNPACK #-} !ByteString
 
-  {-# inline fromResult #-}
+  {-# INLINE fromResult #-}
   fromResult Done = Nothing
   fromResult (More c b) = Just (c, StreamUtf8 b)
 
-  {-# inline uncons #-}
+  {-# INLINE uncons #-}
   uncons (StreamUtf8 b) =
     case ByteString.uncons b of
       Nothing -> Done
