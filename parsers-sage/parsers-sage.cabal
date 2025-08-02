@@ -15,13 +15,8 @@ extra-source-files:  CHANGELOG.md
 library
   exposed-modules:     Text.Parser.Sage
   build-depends:       base >=4.16 && <5
-                     , bytestring
-                     , containers >=0.6
-                     , deepseq >=1.4
                      , parsers >=0.13 && <0.14
                      , sage >=0.3 && <0.4
-                     , streaming
-                     , text >=2.0
   hs-source-dirs:      src
   default-language:    Haskell2010
-  ghc-options:         -Wall -Werror
+  ghc-options:         -Wall -Wunused-packages
