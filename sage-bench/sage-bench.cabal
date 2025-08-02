@@ -20,7 +20,7 @@ executable sage-bench
   other-modules:       Parsers
   build-depends:       base >=4.16 && <5
                      , sage
-                     , attoparsec >=0.14 && <0.15
+                     , attoparsec
                      , bytestring
                      , criterion
                      , deepseq
