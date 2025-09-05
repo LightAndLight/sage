@@ -26,8 +26,7 @@ executable sage-bench
                      , deepseq
                      , mmap
                      , optparse-applicative >=0.18 && <0.19
-                     , parsers >=0.13
-                     , parsers-attoparsec
+                     , parsers
                      , parsers-sage
                      , text
                      , weigh

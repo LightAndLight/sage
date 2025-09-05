@@ -4,19 +4,16 @@
 
 module Parsers (parsersBench) where
 
+import qualified Data.ByteString.Char8 as ByteString.Char8
 import Control.Applicative (many, some, (<|>))
 import Control.DeepSeq (NFData)
 import Criterion.Main (Benchmark, bench, bgroup, nf)
-import qualified Data.Attoparsec.Text as Attoparsec
+import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec
 import Data.Char (isLower)
-import Data.Text (unpack)
 import GHC.Generics (Generic)
-import Streaming.Chars (Chars)
-import Streaming.Chars.Text (StreamText (StreamText))
-import Text.Parser.Attoparsec (getParsersAttoparsec)
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
-import Text.Parser.Sage (getParsersSage)
+import Text.Parser.Sage.Instances ()
 import qualified Text.Sage as Sage
 
 data Expr = Var String | Lam String Expr | App Expr Expr
@@ -40,11 +37,13 @@ expr =
         <* spaces
     app = foldl App <$> atom <*> many atom
 
-exprSage :: Chars s => Sage.Parser s Expr
-exprSage = getParsersSage expr
+{-# NOINLINE exprSage #-}
+exprSage :: Sage.Parser Expr
+exprSage = expr
 
+{-# NOINLINE exprAP #-}
 exprAP :: Attoparsec.Parser Expr
-exprAP = getParsersAttoparsec expr
+exprAP = expr
 
 parsersBench :: Benchmark
 parsersBench =
@@ -54,16 +53,16 @@ parsersBench =
         input = "\\x -> \\y -> x (\\z -> z y) y"
       in
         bgroup
-          (unpack input)
-          [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+          (ByteString.Char8.unpack input)
+          [ bench "sage" $ nf (Sage.parse exprSage) input
           , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
           ]
     , let
         input = "\\x -> \\y -> x (\\z -> z y) y (\\x -> (\\y -> ((x y) z) (\\w -> x y w)))"
       in
         bgroup
-          (unpack input)
-          [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+          (ByteString.Char8.unpack input)
+          [ bench "sage" $ nf (Sage.parse exprSage) input
           , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
           ]
     ]

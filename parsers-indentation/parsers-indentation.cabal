@@ -16,7 +16,7 @@ extra-source-files:  CHANGELOG.md
 library
   exposed-modules:     Text.Parser.Indentation
   build-depends:       base >=4.16 && <5
-                     , parsers >=0.13 && <0.14
+                     , parsers
                      , transformers
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -28,11 +28,12 @@ test-suite parsers-indentation-test
   main-is:             Main.hs
   other-modules:       Test.Indentation
   build-depends:       base
-                     , sage
+                     , bytestring
                      , hspec
                      , parsers
                      , parsers-indentation
                      , parsers-sage
+                     , sage
                      , text
   default-language:    Haskell2010
   ghc-options:         -Wall -Wunused-packages
