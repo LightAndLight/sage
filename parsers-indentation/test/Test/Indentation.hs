@@ -12,15 +12,15 @@ import Streaming.Chars.Text (StreamText (StreamText))
 import Test.Hspec (Spec, describe, it, shouldBe)
 import Text.Parser.Char (char, letter, space, string)
 import Text.Parser.Indentation (Amount (..), IndentationT, current, indented, runIndentationT)
-import Text.Parser.Sage (ParsersSage (..))
-import Text.Sage (Label (..), ParseError (..), parse)
+import Text.Parser.Sage ()
+import Text.Sage (Label (..), ParseError (..), parse, Parser)
 
 data Def
   = Def Text [Def]
   | Print Text
   deriving (Eq, Show)
 
-pythonish :: Chars s => IndentationT (ParsersSage s) Def
+pythonish :: Chars s => IndentationT (Parser s) Def
 pythonish =
   def
     <|> print'
@@ -51,7 +51,7 @@ indentationTests = do
               , "  b"
               ]
         parse
-          ( getParsersSage . runIndentationT 0 $
+          ( runIndentationT 0 $
               (,)
                 <$> char 'a'
                 <* char '\n'
@@ -67,7 +67,7 @@ indentationTests = do
               , "    b"
               ]
         parse
-          ( getParsersSage . runIndentationT 0 $
+          ( runIndentationT 0 $
               (,)
                 <$> char 'a'
                 <* char '\n'
@@ -83,7 +83,7 @@ indentationTests = do
               , "b"
               ]
         parse
-          ( getParsersSage . runIndentationT 0 $
+          ( runIndentationT 0 $
               (,)
                 <$> char 'a'
                 <* char '\n'
@@ -101,7 +101,7 @@ indentationTests = do
               , "c"
               ]
         parse
-          ( getParsersSage . runIndentationT 0 $
+          ( runIndentationT 0 $
               (,,)
                 <$> char 'a'
                 <* char '\n'
@@ -119,7 +119,7 @@ indentationTests = do
               , "  c"
               ]
         parse
-          ( getParsersSage . runIndentationT 0 $
+          ( runIndentationT 0 $
               (,,)
                 <$> char 'a'
                 <* char '\n'
@@ -136,7 +136,7 @@ indentationTests = do
               [ "def hi():"
               , "  print(\"yes\")"
               ]
-        parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "hi" [Print "yes"])
       it "2" $ do
         let
@@ -146,7 +146,7 @@ indentationTests = do
               , "  def g():"
               , "    print(\"yes\")"
               ]
-        parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Print "yes"]])
       it "3" $ do
         let
@@ -157,7 +157,7 @@ indentationTests = do
               , "    print(\"yes\")"
               , "  print(\"no\")"
               ]
-        parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Print "yes"], Print "no"])
       it "4" $ do
         let
@@ -168,7 +168,7 @@ indentationTests = do
               , "      print(\"yes\")"
               , "    print(\"no\")"
               ]
-        parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Left (Unexpected 39 [String "dedent ==0, ==2", String "indent ==6"])
       it "5" $ do
         let
@@ -180,7 +180,7 @@ indentationTests = do
               , "      print(\"yes\")"
               , "    print(\"no\")"
               ]
-        parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Def "h" [Print "yes"], Print "no"]])
       it "6" $ do
         let
@@ -192,5 +192,5 @@ indentationTests = do
               , "      print(\"yes\")"
               , "  print(\"no\")"
               ]
-        parse (getParsersSage $ runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) (StreamText input)
           `shouldBe` Right (Def "f" [Def "g" [Def "h" [Print "yes"]], Print "no"])

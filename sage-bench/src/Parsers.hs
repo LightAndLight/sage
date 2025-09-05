@@ -11,12 +11,10 @@ import qualified Data.Attoparsec.Text as Attoparsec
 import Data.Char (isLower)
 import Data.Text (unpack)
 import GHC.Generics (Generic)
-import Streaming.Chars (Chars)
-import Streaming.Chars.Text (StreamText (StreamText))
-import Text.Parser.Attoparsec (getParsersAttoparsec)
+import Streaming.Chars.Text (StreamText (..))
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
-import Text.Parser.Sage (getParsersSage)
+import Text.Parser.Sage ()
 import qualified Text.Sage as Sage
 
 data Expr = Var String | Lam String Expr | App Expr Expr
@@ -40,11 +38,13 @@ expr =
         <* spaces
     app = foldl App <$> atom <*> many atom
 
-exprSage :: Chars s => Sage.Parser s Expr
-exprSage = getParsersSage expr
+{-# NOINLINE exprSage #-}
+exprSage :: Sage.Parser StreamText Expr
+exprSage = expr
 
+{-# NOINLINE exprAP #-}
 exprAP :: Attoparsec.Parser Expr
-exprAP = getParsersAttoparsec expr
+exprAP = expr
 
 parsersBench :: Benchmark
 parsersBench =

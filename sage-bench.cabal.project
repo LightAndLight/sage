@@ -7,4 +7,4 @@ tests: True
 benchmarks: True
 
 constraints:
-  parsers -attoparsec -binary -parsec
+  parsers +attoparsec -binary -parsec

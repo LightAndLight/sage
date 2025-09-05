@@ -57,7 +57,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Exts (Int (..), Int#, orI#, (+#))
 import GHC.Generics (Generic)
-import Streaming.Chars (Chars, fromResult)
+import Streaming.Chars (Chars, Result(..))
 import qualified Streaming.Chars as Chars
 import Streaming.Chars.ByteString.Utf8 (StreamUtf8 (StreamUtf8))
 import Streaming.Chars.Text (StreamText (StreamText))
@@ -269,8 +269,8 @@ string t =
             , Just# t'
           #)
         Just (!expectedC, !expect') ->
-          case fromResult $ Chars.uncons input' of
-            Just (actualC, input'')
+          case Chars.uncons input' of
+            More actualC input''
               | expectedC == actualC ->
                   stringGo state t' expect' input'' (pos' +# 1#)
             _ ->
@@ -333,11 +333,12 @@ getOffset :: Parser s Int
 getOffset = Parser $ \(# input, pos, ex #) -> (# 0#, input, pos, ex, Just# (I# pos) #)
 
 -- | Match a specific character
+{-# INLINEABLE char #-}
 char :: Chars s => Char -> Parser s Char
 char c =
   Parser $ \(# input, pos, ex #) ->
-    case fromResult $ Chars.uncons input of
-      Just (c', input')
+    case Chars.uncons input of
+      More c' input'
         | c == c' ->
             (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->
@@ -435,15 +436,15 @@ notFollowedBy (Parser p) =
 eof :: Chars s => Parser s ()
 eof =
   Parser $ \(# input, pos, ex #) ->
-    case fromResult $ Chars.uncons input of
-      Nothing -> (# 0#, input, pos, ex, Just# () #)
-      Just{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
+    case Chars.uncons input of
+      Done -> (# 0#, input, pos, ex, Just# () #)
+      More{} -> (# 0#, input, pos, Set.insert Eof ex, Nothing# #)
 
 satisfy :: Chars s => (Char -> Bool) -> Parser s Char
 satisfy f =
   Parser $ \(# input, pos, ex #) ->
-    case fromResult $ Chars.uncons input of
-      Just (c, input')
+    case Chars.uncons input of
+      More c input'
         | f c ->
             (# 1#, input', pos +# 1#, mempty, Just# c #)
       _ ->

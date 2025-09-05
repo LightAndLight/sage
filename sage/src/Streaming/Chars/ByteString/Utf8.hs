@@ -5,13 +5,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -ddump-simpl
-    -ddump-to-file
-    -dsuppress-idinfo
-    -dsuppress-coercions
-    -dsuppress-type-applications
-    -dsuppress-uniques
-    -dsuppress-module-prefixes #-}
 
 module Streaming.Chars.ByteString.Utf8 (StreamUtf8 (..)) where
 
@@ -28,7 +21,7 @@ import qualified Data.ByteString as ByteString
 import Data.Word (Word8)
 import GHC.Exts (Char (C#), Int#, Word8#, chr#, int8ToInt#, uncheckedIShiftL#, word8ToInt8#, (+#), (-#))
 import GHC.Word (Word8 (W8#))
-import Streaming.Chars (Chars (..))
+import Streaming.Chars (Chars (..), Result (..))
 
 word8ToInt# :: Word8# -> Int#
 word8ToInt# w = int8ToInt# (word8ToInt8# w)
@@ -101,14 +94,8 @@ decodeChar n1 bs =
 newtype StreamUtf8 = StreamUtf8 ByteString
 
 instance Chars StreamUtf8 where
-  data Result StreamUtf8 = Done | More !Char {-# UNPACK #-} !ByteString
-
-  {-# INLINE fromResult #-}
-  fromResult Done = Nothing
-  fromResult (More c b) = Just (c, StreamUtf8 b)
-
   {-# INLINE uncons #-}
   uncons (StreamUtf8 b) =
     case ByteString.uncons b of
       Nothing -> Done
-      Just (w, b') | (# c, b'' #) <- decodeChar w b' -> More c b''
+      Just (w, b') | (# c, b'' #) <- decodeChar w b' -> More c (StreamUtf8 b'')

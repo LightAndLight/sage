@@ -33,10 +33,8 @@ import Streaming.Chars.ByteString.Utf8 (StreamUtf8 (StreamUtf8))
 import Streaming.Chars.Text (StreamText (StreamText))
 import System.Environment (withArgs)
 import qualified System.IO.MMap as Mmap
-import Text.Parser.Attoparsec (getParsersAttoparsec)
 import Text.Parser.Char (CharParsing, anyChar, char, satisfy, text)
 import Text.Parser.Combinators (between, eof, sepBy)
-import Text.Parser.Sage (getParsersSage)
 import qualified Text.Sage as Parser
 import Weigh
 
@@ -73,22 +71,22 @@ expr =
 
 {-# INLINEABLE parseLambda #-}
 parseLambda :: Chars s => s -> Either Parser.ParseError Expr
-parseLambda = Parser.parse (getParsersSage expr)
+parseLambda = Parser.parse expr
 
 {-# NOINLINE parseLambdaText #-}
 parseLambdaText :: Text -> Either Parser.ParseError Expr
-parseLambdaText = Parser.parse (getParsersSage expr) . StreamText
+parseLambdaText = Parser.parse expr . StreamText
 
 {-# NOINLINE parseLambdaBS #-}
 parseLambdaBS :: ByteString -> Either Parser.ParseError Expr
-parseLambdaBS = Parser.parse (getParsersSage expr) . StreamUtf8
+parseLambdaBS = Parser.parse expr . StreamUtf8
 
 {-# NOINLINE parseLambdaAP #-}
 parseLambdaAP :: Text -> Either String Expr
-parseLambdaAP = Attoparsec.parseOnly (getParsersAttoparsec expr)
+parseLambdaAP = Attoparsec.parseOnly expr
 
 manySymbols :: Text -> Either Parser.ParseError Int
-manySymbols = Parser.parse (getParsersSage $ ps <* eof) . StreamText
+manySymbols = Parser.parse (ps <* eof) . StreamText
   where
     ps = (+) <$> p <*> (char ' ' *> ps <|> pure 0)
     p =
@@ -140,7 +138,7 @@ manyTextsAP = Attoparsec.parse (ps <* Attoparsec.endOfInput)
         <|> 6 <$ Attoparsec.string "ticklish"
 
 commasep :: Text -> Either Parser.ParseError [Char]
-commasep = Parser.parse (getParsersSage $ sepBy (char 'a') (char ',') <* eof) . StreamText
+commasep = Parser.parse (sepBy (char 'a') (char ',') <* eof) . StreamText
 
 commasepAP :: Text -> Attoparsec.Result [Char]
 commasepAP = Attoparsec.parse (Attoparsec.sepBy (Attoparsec.char 'a') (Attoparsec.char ',') <* Attoparsec.endOfInput)
@@ -150,7 +148,7 @@ lipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin consequ
 
 {-# INLINEABLE sageMany #-}
 sageMany :: Chars s => s -> [Char]
-sageMany = Either.fromRight undefined . Parser.parse (getParsersSage $ many anyChar)
+sageMany = Either.fromRight undefined . Parser.parse (many anyChar)
 
 {-# NOINLINE sageManyText #-}
 sageManyText :: Text -> [Char]
@@ -158,7 +156,7 @@ sageManyText = sageMany . StreamText
 
 {-# NOINLINE attoManyText #-}
 attoManyText :: Text -> [Char]
-attoManyText = Either.fromRight undefined . Attoparsec.parseOnly (getParsersAttoparsec $ many anyChar)
+attoManyText = Either.fromRight undefined . Attoparsec.parseOnly (many anyChar)
 
 {-# NOINLINE sageManyBS #-}
 sageManyBS :: ByteString -> [Char]
@@ -166,7 +164,7 @@ sageManyBS = sageMany . StreamUtf8
 
 {-# INLINEABLE sageSome #-}
 sageSome :: Chars s => s -> [Char]
-sageSome = Either.fromRight undefined . Parser.parse (getParsersSage $ some anyChar)
+sageSome = Either.fromRight undefined . Parser.parse (some anyChar)
 
 {-# NOINLINE sageSomeText #-}
 sageSomeText :: Text -> [Char]
@@ -174,7 +172,7 @@ sageSomeText = sageSome . StreamText
 
 {-# NOINLINE attoSomeText #-}
 attoSomeText :: Text -> [Char]
-attoSomeText = Either.fromRight undefined . Attoparsec.parseOnly (getParsersAttoparsec $ some anyChar)
+attoSomeText = Either.fromRight undefined . Attoparsec.parseOnly (some anyChar)
 
 {-# NOINLINE sageSomeBS #-}
 sageSomeBS :: ByteString -> [Char]
@@ -188,7 +186,7 @@ a1000BS = Text.Encoding.encodeUtf8 a1000Text
 
 {-# INLINEABLE sageChar #-}
 sageChar :: Chars s => s -> [Char]
-sageChar = Either.fromRight undefined . Parser.parse (getParsersSage . many $ char 'a')
+sageChar = Either.fromRight undefined . Parser.parse (many $ char 'a')
 
 {-# NOINLINE sageCharText #-}
 sageCharText :: Text -> [Char]
@@ -196,7 +194,7 @@ sageCharText = sageChar . StreamText
 
 {-# NOINLINE attoCharText #-}
 attoCharText :: Text -> [Char]
-attoCharText = Either.fromRight undefined . Attoparsec.parseOnly (getParsersAttoparsec . many $ char 'a')
+attoCharText = Either.fromRight undefined . Attoparsec.parseOnly (many $ char 'a')
 
 {-# NOINLINE sageCharBS #-}
 sageCharBS :: ByteString -> [Char]
