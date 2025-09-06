@@ -13,7 +13,7 @@ import Data.Char (isLower)
 import GHC.Generics (Generic)
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
-import Text.Parser.Sage ()
+import Text.Parser.Sage.Instances ()
 import qualified Text.Sage as Sage
 
 data Expr = Var String | Lam String Expr | App Expr Expr

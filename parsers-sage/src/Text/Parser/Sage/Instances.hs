@@ -1,11 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Text.Parser.Sage () where
+module Text.Parser.Sage.Instances () where
 
 import Control.Applicative (Alternative (..), (<|>))
 import Text.Parser.Char (CharParsing)

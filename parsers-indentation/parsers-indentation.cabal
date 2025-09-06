@@ -28,11 +28,12 @@ test-suite parsers-indentation-test
   main-is:             Main.hs
   other-modules:       Test.Indentation
   build-depends:       base
-                     , sage
+                     , bytestring
                      , hspec
                      , parsers
                      , parsers-indentation
                      , parsers-sage
+                     , sage
                      , text
   default-language:    Haskell2010
   ghc-options:         -Wall -Wunused-packages

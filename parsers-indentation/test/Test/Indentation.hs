@@ -4,23 +4,22 @@
 
 module Test.Indentation (indentationTests) where
 
+import qualified Data.ByteString.Char8 as ByteString.Char8
 import Control.Applicative (many, optional, some, (<|>))
 import Data.Text (Text)
-import qualified Data.Text as Text
-import Streaming.Chars (Chars)
-import Streaming.Chars.Text (StreamText (StreamText))
 import Test.Hspec (Spec, describe, it, shouldBe)
 import Text.Parser.Char (char, letter, space, string)
 import Text.Parser.Indentation (Amount (..), IndentationT, current, indented, runIndentationT)
-import Text.Parser.Sage ()
+import Text.Parser.Sage.Instances ()
 import Text.Sage (Label (..), ParseError (..), parse, Parser)
+import qualified Data.Text as Text
 
 data Def
   = Def Text [Def]
   | Print Text
   deriving (Eq, Show)
 
-pythonish :: Chars s => IndentationT (Parser s) Def
+pythonish :: IndentationT Parser Def
 pythonish =
   def
     <|> print'
@@ -46,7 +45,7 @@ indentationTests = do
       it "2 spaces" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "a"
               , "  b"
               ]
@@ -57,12 +56,12 @@ indentationTests = do
                 <* char '\n'
                 <*> indented (Add 2) (current *> char 'b')
           )
-          (StreamText input)
+          input
           `shouldBe` Right ('a', 'b')
       it "4 spaces" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "a"
               , "    b"
               ]
@@ -73,12 +72,12 @@ indentationTests = do
                 <* char '\n'
                 <*> indented (Add 4) (current *> char 'b')
           )
-          (StreamText input)
+          input
           `shouldBe` Right ('a', 'b')
       it "expected 2 spaces but got 0" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "a"
               , "b"
               ]
@@ -89,13 +88,13 @@ indentationTests = do
                 <* char '\n'
                 <*> indented (Add 2) (current *> char 'b')
           )
-          (StreamText input)
+          input
           `shouldBe` Left (Unexpected 2 [String "indent ==2"])
     describe "dedent" $ do
       it "2 spaces then back to 0" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "a"
               , "  b"
               , "c"
@@ -108,12 +107,12 @@ indentationTests = do
                 <*> indented (Add 2) (current *> char 'b' <* char '\n')
                 <*> char 'c'
           )
-          (StreamText input)
+          input
           `shouldBe` Right ('a', 'b', 'c')
       it "2 spaces then back to 0 but stayed at 2" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "a"
               , "  b"
               , "  c"
@@ -126,71 +125,71 @@ indentationTests = do
                 <*> indented (Add 2) (current *> char 'b' <* char '\n')
                 <*> char 'c'
           )
-          (StreamText input)
+          input
           `shouldBe` Left (Unexpected 6 [String "dedent ==0"])
     describe "python-style, enforced 2-space indents" $ do
       it "1" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "def hi():"
               , "  print(\"yes\")"
               ]
-        parse (runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) input
           `shouldBe` Right (Def "hi" [Print "yes"])
       it "2" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "def f():"
               , "  def g():"
               , "    print(\"yes\")"
               ]
-        parse (runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) input
           `shouldBe` Right (Def "f" [Def "g" [Print "yes"]])
       it "3" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "def f():"
               , "  def g():"
               , "    print(\"yes\")"
               , "  print(\"no\")"
               ]
-        parse (runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) input
           `shouldBe` Right (Def "f" [Def "g" [Print "yes"], Print "no"])
       it "4" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "def f():"
               , "  def g():"
               , "      print(\"yes\")"
               , "    print(\"no\")"
               ]
-        parse (runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) input
           `shouldBe` Left (Unexpected 39 [String "dedent ==0, ==2", String "indent ==6"])
       it "5" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "def f():"
               , "  def g():"
               , "    def h():"
               , "      print(\"yes\")"
               , "    print(\"no\")"
               ]
-        parse (runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) input
           `shouldBe` Right (Def "f" [Def "g" [Def "h" [Print "yes"], Print "no"]])
       it "6" $ do
         let
           input =
-            Text.unlines
+            ByteString.Char8.unlines
               [ "def f():"
               , "  def g():"
               , "    def h():"
               , "      print(\"yes\")"
               , "  print(\"no\")"
               ]
-        parse (runIndentationT 0 pythonish) (StreamText input)
+        parse (runIndentationT 0 pythonish) input
           `shouldBe` Right (Def "f" [Def "g" [Def "h" [Print "yes"]], Print "no"])

@@ -56,9 +56,8 @@ import qualified Data.Text as Text
 import GHC.Exts (Int (..), Int#, orI#, (+#), Addr#, Char#, Char (..), eqChar#, (-#))
 import GHC.Generics (Generic)
 import GHC.ForeignPtr (ForeignPtr(..), ForeignPtrContents (..))
-import Streaming.Chars.ByteString.Utf8 (Result(..))
 import Data.ByteString.Internal (toForeignPtr0, fromForeignPtr)
-import qualified Streaming.Chars.ByteString.Utf8 as Utf8
+import qualified Text.Sage.Utf8 as Utf8
 
 type ByteString# = (# Addr#, Int# #)
 
@@ -70,8 +69,8 @@ toByteString# bs =
 uncons :: ByteString# -> Pos# -> (# (# #) | (# Char#, Int# #) #)
 uncons (# addr, len #) pos =
   case Utf8.uncons (fromForeignPtr (ForeignPtr addr FinalPtr) (I# pos) (I# (len -# pos))) of
-    Done -> (# (# #) | #)
-    More c i -> (# | (# c, i #) #)
+    Utf8.Done -> (# (# #) | #)
+    Utf8.More c i -> (# | (# c, i #) #)
 
 -- | Parse a UTF-8 encoded 'ByteString'.
 parse :: Parser a -> ByteString -> Either ParseError a

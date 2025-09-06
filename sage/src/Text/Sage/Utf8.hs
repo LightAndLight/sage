@@ -1,12 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MagicHash #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UnboxedTuples #-}
-{-# LANGUAGE UndecidableInstances #-}
 
-module Streaming.Chars.ByteString.Utf8 (uncons, Result(..)) where
+module Text.Sage.Utf8 (uncons, Result(..)) where
 
 {-
 
