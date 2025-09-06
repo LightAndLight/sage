@@ -53,24 +53,13 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GHC.Exts (Int (..), Int#, orI#, (+#), Addr#, Char#, Char (..), eqChar#, (-#))
+import GHC.Exts (Int (..), Int#, orI#, (+#), Char#, Char (..), eqChar#, (-#), plusAddr#)
 import GHC.Generics (Generic)
-import GHC.ForeignPtr (ForeignPtr(..), ForeignPtrContents (..))
-import Data.ByteString.Internal (toForeignPtr0, fromForeignPtr)
+import Text.Sage.Utf8 (ByteString#, toByteString#)
 import qualified Text.Sage.Utf8 as Utf8
 
-type ByteString# = (# Addr#, Int# #)
-
-toByteString# :: ByteString -> ByteString#
-toByteString# bs =
-  let !(ForeignPtr addr _, I# len) = toForeignPtr0 bs in
-  (# addr, len #)
-
 uncons :: ByteString# -> Pos# -> (# (# #) | (# Char#, Int# #) #)
-uncons (# addr, len #) pos =
-  case Utf8.uncons (fromForeignPtr (ForeignPtr addr FinalPtr) (I# pos) (I# (len -# pos))) of
-    Utf8.Done -> (# (# #) | #)
-    Utf8.More c i -> (# | (# c, i #) #)
+uncons (# addr, len #) pos = Utf8.uncons (# addr `plusAddr#` pos, len -# pos #)
 
 -- | Parse a UTF-8 encoded 'ByteString'.
 parse :: Parser a -> ByteString -> Either ParseError a

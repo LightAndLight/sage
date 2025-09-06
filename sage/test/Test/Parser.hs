@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 module Test.Parser (parserTests) where
 
@@ -9,6 +11,9 @@ import Data.Char (isDigit)
 import qualified Data.Set as Set
 import Test.Hspec
 import Text.Sage
+import Text.Sage.Utf8 (uncons, toByteString#)
+import GHC.Exts (Char(..), Int (..))
+import qualified Data.Text.Encoding as Text.Encoding
 
 digit :: Parser Char
 digit = satisfy isDigit <?> "digit"
@@ -17,7 +22,33 @@ decimal :: Parser Int
 decimal = read <$> some digit
 
 parserTests :: Spec
-parserTests =
+parserTests = do
+  describe "uncons" $ do
+    it "Β" $ do
+      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "Β") of
+        (# | (# c, offset #) #) -> do
+          C# c `shouldBe` 'Β'
+          I# offset `shouldBe` 2
+        (# (# #) | #) -> expectationFailure "Done"
+    it "위" $ do
+      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "위") of
+        (# | (# c, offset #) #) -> do
+          C# c `shouldBe` '위'
+          I# offset `shouldBe` 3
+        (# (# #) | #) -> expectationFailure "Done"
+    it "𐍅" $ do
+      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "𐍅") of
+        (# | (# c, offset #) #) -> do
+          C# c `shouldBe` '𐍅'
+          I# offset `shouldBe` 4
+        (# (# #) | #) -> expectationFailure "Done"
+    it "😎" $ do
+      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "😎") of
+        (# | (# c, offset #) #) -> do
+          C# c `shouldBe` '😎'
+          I# offset `shouldBe` 4
+        (# (# #) | #) -> expectationFailure "Done"
+
   describe "parser" $ do
     it "parse (char 'a') \"a\"" $ do
       let
@@ -29,12 +60,17 @@ parserTests =
         input = "b"
         output = Left (Unexpected 0 $ Set.fromList [Char 'a'])
       parse (char 'a') input `shouldBe` output
+    it "parse characters '😎' and 'a'" $ do
+      let
+        input = Text.Encoding.encodeUtf8 "😎a"
+        output = Right ('😎', 'a')
+      parse ((,) <$> satisfy (const True) <*> satisfy (const True)) input `shouldBe` output
     it "parse digit \"5\"" $ do
       let
         input = "5"
         output = Right '5'
       parse digit input `shouldBe` output
-    it "parse digits \"56\"" $ do
+    it "parse digits '5' and '6'" $ do
       let
         input = "56"
         output = Right ('5', '6')
