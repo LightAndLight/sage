@@ -4,14 +4,13 @@
 
 module Parsers (parsersBench) where
 
+import qualified Data.ByteString.Char8 as ByteString.Char8
 import Control.Applicative (many, some, (<|>))
 import Control.DeepSeq (NFData)
 import Criterion.Main (Benchmark, bench, bgroup, nf)
-import qualified Data.Attoparsec.Text as Attoparsec
+import qualified Data.Attoparsec.ByteString.Char8 as Attoparsec
 import Data.Char (isLower)
-import Data.Text (unpack)
 import GHC.Generics (Generic)
-import Streaming.Chars.Text (StreamText (..))
 import Text.Parser.Char (CharParsing, char, satisfy, string)
 import Text.Parser.Combinators (between, skipMany)
 import Text.Parser.Sage ()
@@ -39,7 +38,7 @@ expr =
     app = foldl App <$> atom <*> many atom
 
 {-# NOINLINE exprSage #-}
-exprSage :: Sage.Parser StreamText Expr
+exprSage :: Sage.Parser Expr
 exprSage = expr
 
 {-# NOINLINE exprAP #-}
@@ -54,16 +53,16 @@ parsersBench =
         input = "\\x -> \\y -> x (\\z -> z y) y"
       in
         bgroup
-          (unpack input)
-          [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+          (ByteString.Char8.unpack input)
+          [ bench "sage" $ nf (Sage.parse exprSage) input
           , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
           ]
     , let
         input = "\\x -> \\y -> x (\\z -> z y) y (\\x -> (\\y -> ((x y) z) (\\w -> x y w)))"
       in
         bgroup
-          (unpack input)
-          [ bench "sage" $ nf (Sage.parse exprSage . StreamText) input
+          (ByteString.Char8.unpack input)
+          [ bench "sage" $ nf (Sage.parse exprSage) input
           , bench "attoparsec" $ nf (Attoparsec.parseOnly exprAP) input
           ]
     ]

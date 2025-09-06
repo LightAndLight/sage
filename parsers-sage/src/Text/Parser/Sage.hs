@@ -8,7 +8,6 @@
 module Text.Parser.Sage () where
 
 import Control.Applicative (Alternative (..), (<|>))
-import Streaming.Chars (Chars)
 import Text.Parser.Char (CharParsing)
 import qualified Text.Parser.Char as CharParsing
 import Text.Parser.Combinators (Parsing)
@@ -18,7 +17,7 @@ import Text.Parser.Token (TokenParsing (..))
 import Text.Sage (Parser (..), skipMany, string)
 import qualified Text.Sage
 
-instance Chars s => Parsing (Parser s) where
+instance Parsing Parser where
   try = Text.Sage.try
   (<?>) = (Text.Sage.<?>)
   skipMany = Text.Sage.skipMany
@@ -27,13 +26,13 @@ instance Chars s => Parsing (Parser s) where
   unexpected _ = empty
   eof = Text.Sage.eof
 
-instance Chars s => CharParsing (Parser s) where
+instance CharParsing Parser where
   satisfy = Text.Sage.satisfy
   char = Text.Sage.char
   text = Text.Sage.string
 
-instance Chars s => TokenParsing (Parser s) where
+instance TokenParsing Parser where
   token p = p <* (someSpace <|> pure ())
 
-instance Chars s => LookAheadParsing (Parser s) where
+instance LookAheadParsing Parser where
   lookAhead = Text.Sage.lookAhead

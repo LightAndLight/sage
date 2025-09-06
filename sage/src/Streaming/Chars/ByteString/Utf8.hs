@@ -6,7 +6,7 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Streaming.Chars.ByteString.Utf8 (StreamUtf8 (..)) where
+module Streaming.Chars.ByteString.Utf8 (uncons, Result(..)) where
 
 {-
 
@@ -19,24 +19,23 @@ Some code in this module has been copied from the `text` library's `Data.Text.In
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.Word (Word8)
-import GHC.Exts (Char (C#), Int#, Word8#, chr#, int8ToInt#, uncheckedIShiftL#, word8ToInt8#, (+#), (-#))
+import GHC.Exts (Int#, Word8#, chr#, int8ToInt#, uncheckedIShiftL#, word8ToInt8#, (+#), (-#), Char#)
 import GHC.Word (Word8 (W8#))
-import Streaming.Chars (Chars (..), Result (..))
 
 word8ToInt# :: Word8# -> Int#
 word8ToInt# w = int8ToInt# (word8ToInt8# w)
 
-unsafeChr8 :: Word8 -> Char
-unsafeChr8 (W8# w#) = C# (chr# (word8ToInt# w#))
+unsafeChr8 :: Word8 -> Char#
+unsafeChr8 (W8# w#) = chr# (word8ToInt# w#)
 {-# INLINE unsafeChr8 #-}
 
-chr1 :: Word8 -> ByteString -> (# Char, ByteString #)
-chr1 n1 bs = (# unsafeChr8 n1, bs #)
+chr1 :: Word8 -> (# Char#, Int# #)
+chr1 n1 = (# unsafeChr8 n1, 1# #)
 {-# INLINE chr1 #-}
 
-chr2 :: Word8 -> Word8 -> ByteString -> (# Char, ByteString #)
-chr2 (W8# x1#) (W8# x2#) bs =
-  (# C# (chr# (z1# +# z2#)), bs #)
+chr2 :: Word8 -> Word8 -> (# Char#, Int# #)
+chr2 (W8# x1#) (W8# x2#) =
+  (# chr# (z1# +# z2#), 2# #)
   where
     !y1# = word8ToInt# x1#
     !y2# = word8ToInt# x2#
@@ -44,9 +43,9 @@ chr2 (W8# x1#) (W8# x2#) bs =
     !z2# = y2# -# 0x80#
 {-# INLINE chr2 #-}
 
-chr3 :: Word8 -> Word8 -> Word8 -> ByteString -> (# Char, ByteString #)
-chr3 (W8# x1#) (W8# x2#) (W8# x3#) bs =
-  (# C# (chr# (z1# +# z2# +# z3#)), bs #)
+chr3 :: Word8 -> Word8 -> Word8 -> (# Char#, Int# #)
+chr3 (W8# x1#) (W8# x2#) (W8# x3#) =
+  (# chr# (z1# +# z2# +# z3#), 3# #)
   where
     !y1# = word8ToInt# x1#
     !y2# = word8ToInt# x2#
@@ -56,9 +55,9 @@ chr3 (W8# x1#) (W8# x2#) (W8# x3#) bs =
     !z3# = y3# -# 0x80#
 {-# INLINE chr3 #-}
 
-chr4 :: Word8 -> Word8 -> Word8 -> Word8 -> ByteString -> (# Char, ByteString #)
-chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) bs =
-  (# C# (chr# (z1# +# z2# +# z3# +# z4#)), bs #)
+chr4 :: Word8 -> Word8 -> Word8 -> Word8 -> (# Char#, Int# #)
+chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) =
+  (# chr# (z1# +# z2# +# z3# +# z4#), 4# #)
   where
     !y1# = word8ToInt# x1#
     !y2# = word8ToInt# x2#
@@ -70,32 +69,31 @@ chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) bs =
     !z4# = y4# -# 0x80#
 {-# INLINE chr4 #-}
 
-decodeChar :: Word8 -> ByteString -> (# Char, ByteString #)
+decodeChar :: Word8 -> ByteString -> (# Char#, Int# #)
 decodeChar n1 bs =
   if n1 < 0xC0
-    then chr1 n1 bs
+    then chr1 n1
     else case ByteString.uncons bs of
       Nothing -> error utf8Error
       Just (n2, bs') ->
         if n1 < 0xE0
-          then chr2 n1 n2 bs'
+          then chr2 n1 n2
           else case ByteString.uncons bs' of
             Nothing -> error utf8Error
             Just (n3, bs'') ->
               if n1 < 0xF0
-                then chr3 n1 n2 n3 bs''
+                then chr3 n1 n2 n3
                 else case ByteString.uncons bs'' of
                   Nothing -> error utf8Error
-                  Just (n4, bs''') ->
-                    chr4 n1 n2 n3 n4 bs'''
+                  Just (n4, _bs''') ->
+                    chr4 n1 n2 n3 n4
   where
     utf8Error = "utf8 encoding error"
 
-newtype StreamUtf8 = StreamUtf8 ByteString
+data Result = Done | More !Char# !Int#
 
-instance Chars StreamUtf8 where
-  {-# INLINE uncons #-}
-  uncons (StreamUtf8 b) =
-    case ByteString.uncons b of
-      Nothing -> Done
-      Just (w, b') | (# c, b'' #) <- decodeChar w b' -> More c (StreamUtf8 b'')
+uncons :: ByteString -> Result
+uncons bs =
+  case ByteString.uncons bs of
+    Nothing -> Done
+    Just (w, b') | (# c, offset #) <- decodeChar w b' -> More c offset
