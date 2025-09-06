@@ -2,21 +2,22 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE UnboxedTuples #-}
 
-module Text.Sage.Utf8 (ByteString#, toByteString#, uncons) where
+module Text.Sage.Utf8 (ByteString#, withByteString#, uncons) where
 
-import GHC.Exts (Int#, Word8#, chr#, Char#, Addr#, (>=#), readWord8OffAddr#, ltWord8#, int2Word#, wordToWord8#, word8ToWord#, word2Int#, or#, and#, uncheckedShiftL#, Int (..), runRW#)
+import GHC.Exts (Int#, Word8#, chr#, Char#, Addr#, (>=#), readWord8OffAddr#, ltWord8#, int2Word#, wordToWord8#, word8ToWord#, word2Int#, or#, and#, uncheckedShiftL#, Int (..), runRW#, Ptr (..))
 import GHC.Word (Word8 (W8#))
 import Numeric (showHex)
-import GHC.ForeignPtr (ForeignPtr(..))
 import Data.ByteString (ByteString)
 import Data.ByteString.Internal (toForeignPtr0)
+import Foreign.ForeignPtr (withForeignPtr)
+import System.IO.Unsafe (unsafePerformIO)
 
 type ByteString# = (# Addr#, Int# #)
 
-toByteString# :: ByteString -> ByteString#
-toByteString# bs =
-  let !(ForeignPtr addr _, I# len) = toForeignPtr0 bs in
-  (# addr, len #)
+withByteString# :: ByteString -> (ByteString# -> a) -> a
+withByteString# bs f =
+  let !(fptr, I# len) = toForeignPtr0 bs in
+  unsafePerformIO . withForeignPtr fptr $ \(Ptr addr) -> pure $ f (# addr, len #)
 
 int2Word8# :: Int# -> Word8#
 int2Word8# x = wordToWord8# (int2Word# x)
