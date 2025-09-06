@@ -43,5 +43,6 @@ test-suite sage-test
                      , hedgehog
                      , hspec
                      , hspec-hedgehog
+                     , text
   default-language:    Haskell2010
   ghc-options:         -Wall -Wunused-packages

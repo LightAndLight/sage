@@ -2,94 +2,101 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE UnboxedTuples #-}
 
-module Text.Sage.Utf8 (uncons, Result(..)) where
+module Text.Sage.Utf8 (ByteString#, toByteString#, uncons) where
 
-{-
-
-Some code in this module has been copied from the `text` library's `Data.Text.Internal.Unsafe.Char` module.
-
-(c) 2008, 2009 Tom Harper, (c) 2009, 2010 Bryan O'Sullivan, (c) 2009 Duncan Coutts
-
--}
-
-import Data.ByteString (ByteString)
-import qualified Data.ByteString as ByteString
-import Data.Word (Word8)
-import GHC.Exts (Int#, Word8#, chr#, int8ToInt#, uncheckedIShiftL#, word8ToInt8#, (+#), (-#), Char#)
+import GHC.Exts (Int#, Word8#, chr#, Char#, Addr#, (>=#), readWord8OffAddr#, ltWord8#, int2Word#, wordToWord8#, word8ToWord#, word2Int#, or#, and#, uncheckedShiftL#, Int (..), runRW#)
 import GHC.Word (Word8 (W8#))
+import Numeric (showHex)
+import GHC.ForeignPtr (ForeignPtr(..))
+import Data.ByteString (ByteString)
+import Data.ByteString.Internal (toForeignPtr0)
 
-word8ToInt# :: Word8# -> Int#
-word8ToInt# w = int8ToInt# (word8ToInt8# w)
+type ByteString# = (# Addr#, Int# #)
 
-unsafeChr8 :: Word8 -> Char#
-unsafeChr8 (W8# w#) = chr# (word8ToInt# w#)
-{-# INLINE unsafeChr8 #-}
+toByteString# :: ByteString -> ByteString#
+toByteString# bs =
+  let !(ForeignPtr addr _, I# len) = toForeignPtr0 bs in
+  (# addr, len #)
 
-chr1 :: Word8 -> (# Char#, Int# #)
-chr1 n1 = (# unsafeChr8 n1, 1# #)
-{-# INLINE chr1 #-}
+int2Word8# :: Int# -> Word8#
+int2Word8# x = wordToWord8# (int2Word# x)
 
-chr2 :: Word8 -> Word8 -> (# Char#, Int# #)
-chr2 (W8# x1#) (W8# x2#) =
-  (# chr# (z1# +# z2#), 2# #)
-  where
-    !y1# = word8ToInt# x1#
-    !y2# = word8ToInt# x2#
-    !z1# = uncheckedIShiftL# (y1# -# 0xC0#) 6#
-    !z2# = y2# -# 0x80#
-{-# INLINE chr2 #-}
-
-chr3 :: Word8 -> Word8 -> Word8 -> (# Char#, Int# #)
-chr3 (W8# x1#) (W8# x2#) (W8# x3#) =
-  (# chr# (z1# +# z2# +# z3#), 3# #)
-  where
-    !y1# = word8ToInt# x1#
-    !y2# = word8ToInt# x2#
-    !y3# = word8ToInt# x3#
-    !z1# = uncheckedIShiftL# (y1# -# 0xE0#) 12#
-    !z2# = uncheckedIShiftL# (y2# -# 0x80#) 6#
-    !z3# = y3# -# 0x80#
-{-# INLINE chr3 #-}
-
-chr4 :: Word8 -> Word8 -> Word8 -> Word8 -> (# Char#, Int# #)
-chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) =
-  (# chr# (z1# +# z2# +# z3# +# z4#), 4# #)
-  where
-    !y1# = word8ToInt# x1#
-    !y2# = word8ToInt# x2#
-    !y3# = word8ToInt# x3#
-    !y4# = word8ToInt# x4#
-    !z1# = uncheckedIShiftL# (y1# -# 0xF0#) 18#
-    !z2# = uncheckedIShiftL# (y2# -# 0x80#) 12#
-    !z3# = uncheckedIShiftL# (y3# -# 0x80#) 6#
-    !z4# = y4# -# 0x80#
-{-# INLINE chr4 #-}
-
-decodeChar :: Word8 -> ByteString -> (# Char#, Int# #)
-decodeChar n1 bs =
-  if n1 < 0xC0
-    then chr1 n1
-    else case ByteString.uncons bs of
-      Nothing -> error utf8Error
-      Just (n2, bs') ->
-        if n1 < 0xE0
-          then chr2 n1 n2
-          else case ByteString.uncons bs' of
-            Nothing -> error utf8Error
-            Just (n3, bs'') ->
-              if n1 < 0xF0
-                then chr3 n1 n2 n3
-                else case ByteString.uncons bs'' of
-                  Nothing -> error utf8Error
-                  Just (n4, _bs''') ->
-                    chr4 n1 n2 n3 n4
-  where
-    utf8Error = "utf8 encoding error"
-
-data Result = Done | More !Char# !Int#
-
-uncons :: ByteString -> Result
-uncons bs =
-  case ByteString.uncons bs of
-    Nothing -> Done
-    Just (w, b') | (# c, offset #) <- decodeChar w b' -> More c offset
+uncons :: ByteString# -> (# (# #) | (# Char#, Int# #) #)
+uncons (# addr, len #) =
+  runRW# (\s0 ->
+  case len >=# 1# of
+    1# ->
+      let
+        !(# s1, b1 #) = readWord8OffAddr# addr 0# s0
+      in
+        case () of
+          ()
+            | 1# <- b1 `ltWord8#` int2Word8# 0x80# {- 0b1000_0000 -} ->
+                let
+                  !c = word8ToWord# b1
+                in
+                  (# | (# chr# (word2Int# c), 1# #) #)
+            | 1# <- b1 `ltWord8#` int2Word8# 0xE0# {- 0b1110_0000 -} ->
+                case len >=# 2# of
+                  1# ->
+                    let
+                      !(# _s2, b2 #) = readWord8OffAddr# addr 1# s1
+                      !c =
+                        uncheckedShiftL#
+                          (and# (int2Word# 0x1F# {- 0b0001_1111 -}) (word8ToWord# b1))
+                          6#
+                          `or#`
+                          and# (int2Word# 0x3F# {- 0b0011_1111 -}) (word8ToWord# b2)
+                    in
+                      (# | (# chr# (word2Int# c), 2# #) #)
+                  _ ->
+                    error "unexpected end of 2-byte UTF-8 sequence"
+            | 1# <- b1 `ltWord8#` int2Word8# 0xF0# {- 0b1111_0000 -} ->
+                case len >=# 3# of
+                  1# ->
+                    let
+                      !(# s2, b2 #) = readWord8OffAddr# addr 1# s1
+                      !(# _s3, b3 #) = readWord8OffAddr# addr 2# s2
+                      !c =
+                        uncheckedShiftL#
+                          (and# (int2Word# 0x1F# {- 0b0000_1111 -}) (word8ToWord# b1))
+                          12#
+                        `or#`
+                        uncheckedShiftL#
+                          (and# (int2Word# 0x3F# {- 0b0011_1111 -}) (word8ToWord# b2))
+                          6#
+                        `or#`
+                        and# (int2Word# 0x3F# {- 0b0011_1111 -}) (word8ToWord# b3)
+                    in
+                      (# | (# chr# (word2Int# c), 3# #) #)
+                  _ ->
+                    error "unexpected end of 3-byte UTF-8 sequence"
+            | 1# <- b1 `ltWord8#` int2Word8# 0xF8# {- 0b1111_1000 -} ->
+                case len >=# 4# of
+                  1# ->
+                    let
+                      !(# s2, b2 #) = readWord8OffAddr# addr 1# s1
+                      !(# s3, b3 #) = readWord8OffAddr# addr 2# s2
+                      !(# _s4, b4 #) = readWord8OffAddr# addr 3# s3
+                      !c =
+                        uncheckedShiftL#
+                          (and# (int2Word# 0x7# {- 0b0000_0111 -}) (word8ToWord# b1))
+                          18#
+                        `or#`
+                        uncheckedShiftL#
+                          (and# (int2Word# 0x3F# {- 0b0011_1111 -}) (word8ToWord# b2))
+                          12#
+                        `or#`
+                        uncheckedShiftL#
+                          (and# (int2Word# 0x3F# {- 0b0011_1111 -}) (word8ToWord# b3))
+                          6#
+                        `or#`
+                        and# (int2Word# 0x3F# {- 0b0011_1111 -}) (word8ToWord# b4)
+                    in
+                      (# | (# chr# (word2Int# c), 4# #) #)
+                  _ ->
+                    error "unexpected end of 4-byte UTF-8 sequence"
+            | otherwise -> error $ "invalid UTF-8 leading byte " ++ showHex (W8# b1) ""
+    _ ->
+      (# (# #) | #)
+  )
