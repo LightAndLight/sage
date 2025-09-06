@@ -55,7 +55,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Exts (Int (..), Int#, orI#, (+#), Char#, Char (..), eqChar#, (-#), plusAddr#)
 import GHC.Generics (Generic)
-import Text.Sage.Utf8 (ByteString#, toByteString#)
+import Text.Sage.Utf8 (ByteString#, withByteString#)
 import qualified Text.Sage.Utf8 as Utf8
 
 uncons :: ByteString# -> Pos# -> (# (# #) | (# Char#, Int# #) #)
@@ -64,7 +64,7 @@ uncons (# addr, len #) pos = Utf8.uncons (# addr `plusAddr#` pos, len -# pos #)
 -- | Parse a UTF-8 encoded 'ByteString'.
 parse :: Parser a -> ByteString -> Either ParseError a
 parse (Parser p) bs =
-  let !input = toByteString# bs in
+  withByteString# bs $ \input ->
   case p (# input, 0#, mempty #) of
     (# _, pos, ex, res #) ->
       case res of
@@ -174,8 +174,8 @@ instance Alternative Parser where
   many (Parser p) =
     Parser (go 0# id)
     where
-      go consumed acc (# input, pos, ex #) =
-        case p (# input, pos, ex #) of
+      go consumed acc state@(# input, _, _ #) =
+        case p state of
           (# consumed', pos', ex', ra #) ->
             let
               !consumed'' = orI# consumed consumed'
@@ -221,8 +221,8 @@ instance Alternative Parser where
 
 instance Monad Parser where
   Parser p >>= f =
-    Parser $ \(# input, pos, ex #) ->
-      case p (# input, pos, ex #) of
+    Parser $ \state@(# input, _, _ #) ->
+      case p state of
         (# consumed, pos', ex', ra #) ->
           case ra of
             Nothing# ->
