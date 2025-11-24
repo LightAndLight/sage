@@ -11,7 +11,7 @@ import Data.Char (isDigit)
 import qualified Data.Set as Set
 import Test.Hspec
 import Text.Sage
-import Text.Sage.Utf8 (uncons, toByteString#)
+import Text.Sage.Utf8 (uncons, withByteString#)
 import GHC.Exts (Char(..), Int (..))
 import qualified Data.Text.Encoding as Text.Encoding
 
@@ -24,26 +24,26 @@ decimal = read <$> some digit
 parserTests :: Spec
 parserTests = do
   describe "uncons" $ do
-    it "Β" $ do
-      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "Β") of
+    it "Β" . withByteString# (Text.Encoding.encodeUtf8 "Β") $ \bs ->
+      case uncons bs of
         (# | (# c, offset #) #) -> do
           C# c `shouldBe` 'Β'
           I# offset `shouldBe` 2
         (# (# #) | #) -> expectationFailure "Done"
-    it "위" $ do
-      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "위") of
+    it "위" . withByteString# (Text.Encoding.encodeUtf8 "위") $ \bs ->
+      case uncons bs of
         (# | (# c, offset #) #) -> do
           C# c `shouldBe` '위'
           I# offset `shouldBe` 3
         (# (# #) | #) -> expectationFailure "Done"
-    it "𐍅" $ do
-      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "𐍅") of
+    it "𐍅" . withByteString# (Text.Encoding.encodeUtf8 "𐍅") $ \bs ->
+      case uncons bs of
         (# | (# c, offset #) #) -> do
           C# c `shouldBe` '𐍅'
           I# offset `shouldBe` 4
         (# (# #) | #) -> expectationFailure "Done"
-    it "😎" $ do
-      case uncons (toByteString# $ Text.Encoding.encodeUtf8 "😎") of
+    it "😎" . withByteString# (Text.Encoding.encodeUtf8 "😎") $ \bs ->
+      case uncons bs of
         (# | (# c, offset #) #) -> do
           C# c `shouldBe` '😎'
           I# offset `shouldBe` 4
