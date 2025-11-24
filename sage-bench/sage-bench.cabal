@@ -27,7 +27,7 @@ executable sage-bench
                      , mmap
                      , optparse-applicative >=0.18 && <0.19
                      , parsers
-                     , parsers-sage
+                     , sage-parsers-instances
                      , text
                      , weigh
   hs-source-dirs:      src

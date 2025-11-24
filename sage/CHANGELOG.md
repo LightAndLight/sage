@@ -2,7 +2,7 @@
 
 ## 0.3
 
-* Removed `parsers` instances (now in `parsers-sage` package)
+* Removed `parsers` instances (now in `sage-parsers-instances` package)
 
 ## 0.2
 

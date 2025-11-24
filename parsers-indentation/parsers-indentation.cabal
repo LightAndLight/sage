@@ -35,8 +35,8 @@ test-suite parsers-indentation-test
                      , hspec
                      , parsers
                      , parsers-indentation
-                     , parsers-sage
                      , sage
+                     , sage-parsers-instances
                      , text
   default-language:    Haskell2010
   ghc-options:         -Wall -Wunused-packages

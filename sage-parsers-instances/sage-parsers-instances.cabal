@@ -1,7 +1,7 @@
 cabal-version:       2.4
 
-name:                parsers-sage
-version:             0.13
+name:                sage-parsers-instances
+version:             0.1
 synopsis:            Orphan `parsers` instances for `sage`
 description:
   This package provides `parsers` instances for the `sage` parser.

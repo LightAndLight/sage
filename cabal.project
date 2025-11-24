@@ -1,8 +1,8 @@
 packages:
   ./parsers-indentation
-  ./parsers-sage
   ./sage
   ./sage-bench
+  ./sage-parsers-instances
 tests: True
 benchmarks: True
 
