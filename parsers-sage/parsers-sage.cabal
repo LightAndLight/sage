@@ -3,7 +3,11 @@ cabal-version:       2.4
 name:                parsers-sage
 version:             0.13
 synopsis:            Orphan `parsers` instances for `sage`
-description:         This package provides `parsers` instances for the `sage` parser.
+description:
+  This package provides `parsers` instances for the `sage` parser.
+  .
+  To use this package without depending on `attoparsec`/`binary`/`parsec` via `parsers`,
+  add `constraints: parsers -attoparsec -binary -parsec` to your `cabal.project` file.
 bug-reports:         https://github.com/lightandlight/sage/issues
 license:             BSD-3-Clause
 author:              Isaac Elliott

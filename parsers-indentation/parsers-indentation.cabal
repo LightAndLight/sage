@@ -5,6 +5,9 @@ version:             0.1
 synopsis:            Indentation-sensitive parsers
 description:
   Indentation-sensitive parsers, built on top of <https://hackage.haskell.org/package/parsers @parsers@>
+  .
+  To use this package without depending on `attoparsec`/`binary`/`parsec` via `parsers`,
+  add `constraints: parsers -attoparsec -binary -parsec` to your `cabal.project` file.
 bug-reports:         https://github.com/lightandlight/sage/issues
 license:             BSD-3-Clause
 author:              Isaac Elliott
