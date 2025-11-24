@@ -1,5 +1,10 @@
 # Revision history for sage
 
+## 0.4
+
+* `Parser` is now monomorphic in stream type
+* Removed `Streaming.Chars`, Streaming.Chars.ByteString.Utf8`, and `Streaming.Chars.Text`
+
 ## 0.3
 
 * Removed `parsers` instances (now in `sage-parsers-instances` package)

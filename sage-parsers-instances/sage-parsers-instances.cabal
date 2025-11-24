@@ -20,7 +20,7 @@ library
   exposed-modules:     Text.Parser.Sage.Instances
   build-depends:       base >=4.16 && <5
                      , parsers
-                     , sage >=0.3 && <0.4
+                     , sage >=0.4 && <0.5
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wunused-packages

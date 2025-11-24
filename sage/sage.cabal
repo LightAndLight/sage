@@ -1,20 +1,20 @@
 cabal-version:       2.4
 
 name:                sage
-version:             0.3
+version:             0.4
 synopsis:            Efficient parser combinators
 description:
   Efficient parser combinators for modern Haskell.
   .
-  Sage is about 10% faster and twice as memory-efficient as Attoparsec.
+  Sage is faster and more memory-efficient than Attoparsec, while allowing better error messages.
   .
   Inspired by Ed Kmett's <https://github.com/ekmett/codex/tree/master/parsnip parsnip> parser,
   which for some reason I thought was called 'parsley'. (I don't care for root vegetable puns)
 bug-reports:         https://github.com/lightandlight/sage/issues
 license:             BSD-3-Clause
 author:              Isaac Elliott
-maintainer:          isaace71295@gmail.com
-copyright:           2020-2022 Isaac Elliott
+maintainer:          hackage@id.ielliott.io
+copyright:           2020-2025 Isaac Elliott
 category:            Text
 extra-source-files:  CHANGELOG.md
 
