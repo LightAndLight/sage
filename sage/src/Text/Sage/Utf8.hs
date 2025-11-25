@@ -69,7 +69,7 @@ uncons (# addr, len #) =
                       !(# _s3, b3 #) = readWord8OffAddr# addr 2# s2
                       !c =
                         uncheckedShiftL#
-                          (and# (int2Word# 0x1F# {- 0b0000_1111 -}) (word8ToWord# b1))
+                          (and# (int2Word# 0x0F# {- 0b0000_1111 -}) (word8ToWord# b1))
                           12#
                         `or#`
                         uncheckedShiftL#
