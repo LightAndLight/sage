@@ -38,6 +38,7 @@ test-suite sage-test
   other-modules:       Test.Parser
                      , Test.Span
   build-depends:       base
+                     , bytestring
                      , sage
                      , containers
                      , hedgehog

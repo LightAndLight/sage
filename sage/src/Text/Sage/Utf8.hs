@@ -2,7 +2,7 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE UnboxedTuples #-}
 
-module Text.Sage.Utf8 (ByteString#, withByteString#, uncons) where
+module Text.Sage.Utf8 (ByteString#, unsafeWithByteString#, uncons) where
 
 import GHC.Exts (Int#, Word8#, chr#, Char#, Addr#, (>=#), readWord8OffAddr#, ltWord8#, int2Word#, wordToWord8#, word8ToWord#, word2Int#, or#, and#, uncheckedShiftL#, Int (..), runRW#, Ptr (..))
 import GHC.Word (Word8 (W8#))
@@ -14,10 +14,19 @@ import System.IO.Unsafe (unsafePerformIO)
 
 type ByteString# = (# Addr#, Int# #)
 
-withByteString# :: ByteString -> (ByteString# -> a) -> a
-withByteString# bs f =
+{- | The @Addr#@ inside the @ByteString#@ must not outlive the call to @unsafeWithByteString#@.
+
+In addition to being explicitly stored in the @a@, it's also possible for the @Addr#@ to
+be captured by a thunk (residing in the @a@) that will evaluate to something that doesn't
+reference the @Addr#@. That thunk will be evaluated after @unsafeWithByteString#@ returns, risking
+invalid memory access.
+
+Any thunks involving the @Addr#@ should be forced with the @a@ using 'seq'.
+-}
+unsafeWithByteString# :: ByteString -> (ByteString# -> a) -> a
+unsafeWithByteString# bs f =
   let !(fptr, I# len) = toForeignPtr0 bs in
-  unsafePerformIO . withForeignPtr fptr $ \(Ptr addr) -> pure $ f (# addr, len #)
+  unsafePerformIO . withForeignPtr fptr $ \(Ptr addr) -> pure $! f (# addr, len #)
 
 int2Word8# :: Int# -> Word8#
 int2Word8# x = wordToWord8# (int2Word# x)

@@ -55,7 +55,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GHC.Exts (Int (..), Int#, orI#, (+#), Char#, Char (..), eqChar#, (-#), plusAddr#)
 import GHC.Generics (Generic)
-import Text.Sage.Utf8 (ByteString#, withByteString#)
+import Text.Sage.Utf8 (ByteString#, unsafeWithByteString#)
 import qualified Text.Sage.Utf8 as Utf8
 
 uncons :: ByteString# -> Pos# -> (# (# #) | (# Char#, Int# #) #)
@@ -64,7 +64,7 @@ uncons (# addr, len #) pos = Utf8.uncons (# addr `plusAddr#` pos, len -# pos #)
 -- | Parse a UTF-8 encoded 'ByteString'.
 parse :: Parser a -> ByteString -> Either ParseError a
 parse (Parser p) bs =
-  withByteString# bs $ \input ->
+  unsafeWithByteString# bs $ \input ->
   case p (# input, 0#, mempty #) of
     (# _, pos, ex, res #) ->
       case res of

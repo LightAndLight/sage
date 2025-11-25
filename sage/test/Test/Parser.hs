@@ -11,9 +11,12 @@ import Data.Char (isDigit)
 import qualified Data.Set as Set
 import Test.Hspec
 import Text.Sage
-import Text.Sage.Utf8 (uncons, withByteString#)
+import Text.Sage.Utf8 (uncons, unsafeWithByteString#)
 import GHC.Exts (Char(..), Int (..))
+import qualified Data.ByteString as ByteString
+import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text.Encoding
+import Data.Foldable (for_)
 
 digit :: Parser Char
 digit = satisfy isDigit <?> "digit"
@@ -24,30 +27,15 @@ decimal = read <$> some digit
 parserTests :: Spec
 parserTests = do
   describe "uncons" $ do
-    it "Β" . withByteString# (Text.Encoding.encodeUtf8 "Β") $ \bs ->
-      case uncons bs of
-        (# | (# c, offset #) #) -> do
-          C# c `shouldBe` 'Β'
-          I# offset `shouldBe` 2
-        (# (# #) | #) -> expectationFailure "Done"
-    it "위" . withByteString# (Text.Encoding.encodeUtf8 "위") $ \bs ->
-      case uncons bs of
-        (# | (# c, offset #) #) -> do
-          C# c `shouldBe` '위'
-          I# offset `shouldBe` 3
-        (# (# #) | #) -> expectationFailure "Done"
-    it "𐍅" . withByteString# (Text.Encoding.encodeUtf8 "𐍅") $ \bs ->
-      case uncons bs of
-        (# | (# c, offset #) #) -> do
-          C# c `shouldBe` '𐍅'
-          I# offset `shouldBe` 4
-        (# (# #) | #) -> expectationFailure "Done"
-    it "😎" . withByteString# (Text.Encoding.encodeUtf8 "😎") $ \bs ->
-      case uncons bs of
-        (# | (# c, offset #) #) -> do
-          C# c `shouldBe` '😎'
-          I# offset `shouldBe` 4
-        (# (# #) | #) -> expectationFailure "Done"
+    it "all" $ do
+      for_ (filter (\c -> c < '\xD800' && c > '\xDFFF') [minBound..maxBound] :: [Char]) $ \c -> do
+        let encoded = Text.Encoding.encodeUtf8 $ Text.singleton c
+        unsafeWithByteString# encoded $ \bs ->
+          case uncons bs of
+            (# | (# c', offset #) #) -> do
+              C# c' `shouldBe` c
+              I# offset `shouldBe` ByteString.length encoded
+            (# (# #) | #) -> expectationFailure "Done"
 
   describe "parser" $ do
     it "parse (char 'a') \"a\"" $ do
