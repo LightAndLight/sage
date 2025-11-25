@@ -1,7 +1,7 @@
 cabal-version:       2.4
 
 name:                sage
-version:             0.4
+version:             0.5
 synopsis:            Efficient parser combinators
 description:
   Efficient parser combinators for modern Haskell.

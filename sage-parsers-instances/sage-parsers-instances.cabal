@@ -1,7 +1,7 @@
 cabal-version:       2.4
 
 name:                sage-parsers-instances
-version:             0.1
+version:             0.1.0.1
 synopsis:            Orphan `parsers` instances for `sage`
 description:
   This package provides `parsers` instances for the `sage` parser.
@@ -20,7 +20,7 @@ library
   exposed-modules:     Text.Parser.Sage.Instances
   build-depends:       base >=4.16 && <5
                      , parsers
-                     , sage >=0.4 && <0.5
+                     , sage >=0.4 && <0.6
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wunused-packages

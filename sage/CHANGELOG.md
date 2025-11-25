@@ -1,5 +1,10 @@
 # Revision history for sage
 
+## 0.5
+
+* Fix use-after-free bug in `withByteString#`
+* Rename `withByteString#` to `unsafeWithByteString#`
+
 ## 0.4
 
 * `Parser` is now monomorphic in stream type
